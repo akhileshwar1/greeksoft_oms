@@ -1,0 +1,4 @@
+(executable
+ (public_name greeksoft_oms)
+ (name main)
+ (libraries greeksoft_oms))
