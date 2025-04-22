@@ -17,9 +17,25 @@ let login ~username ~password =
   Client.post ~headers ~body uri
   >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
-  >|= fun body_str ->
+  >>= fun body_str ->
+  Lwt_io.printf "HTTP response body: %s\n" body_str
+  >>= fun () ->
   let json = Yojson.Basic.from_string body_str in
-  let open Yojson.Basic.Util in
-  let session_token = json |> member "session_token" |> to_string in
-  let user_id = json |> member "user_id" |> to_string in
-  Config.with_session Config.empty ~session_token ~user_id
+
+  let find_string_opt key json =
+    match Yojson.Basic.Util.member key json with
+    | `Null -> None
+    | value ->
+      try Some (Yojson.Basic.Util.to_string value)
+      with _ -> None
+  in
+
+  let session_token_opt = find_string_opt "session_token" json in
+  let user_id_opt = find_string_opt "user_id" json in
+
+  match session_token_opt, user_id_opt with
+  | Some session_token, Some user_id ->
+    Lwt.return (Config.with_session Config.empty ~session_token ~user_id)
+  | _ ->
+    failwith "Failed to extract session_token or user_id from login response"
+
