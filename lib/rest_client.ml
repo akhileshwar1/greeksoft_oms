@@ -15,7 +15,7 @@ let login ~username ~password =
   let body = Cohttp_lwt.Body.of_string (Yojson.Basic.to_string body_json) in
 
   Client.post ~headers ~body uri
-  >>= fun (resp, body_stream) ->
+  >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
   >|= fun body_str ->
   let json = Yojson.Basic.from_string body_str in
