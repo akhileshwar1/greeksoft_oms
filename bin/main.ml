@@ -30,4 +30,20 @@ let () =
     jlogin_new config
     >>= fun _ ->
     Lwt_io.printf "JLoginNew successful!\n"
+    >>= fun () ->
+    let dummy_order =
+      {
+        Entities.Order.tradingsymbol = "GRASIM";
+        exchange = "NSE";
+        quantity = 1;
+        price = 1.0;
+        trigger_price = 0.0;
+        side = Entities.Order.Buy;
+        order_type = Entities.Order.Limit;
+        product = Entities.Order.CNC;
+        validity = Entities.Order.DAY;
+        strategy_name = Some "STOCK";
+      }
+    in
+    place_order config dummy_order
   )
