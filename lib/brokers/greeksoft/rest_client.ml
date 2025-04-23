@@ -38,4 +38,3 @@ let login ~username ~password =
     Lwt.return (Config.with_session Config.empty ~session_token ~user_id)
   | _ ->
     failwith "Failed to extract session_token or user_id from login response"
-

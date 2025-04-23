@@ -1,7 +1,8 @@
 (* bin/main.ml *)
 
 open Lwt.Infix
-open Greeksoft_oms
+open Greeksoft.Rest_client
+open Greeksoft.Config
 
 let username = "31500013A"
 let password = "greek@123"
@@ -9,10 +10,9 @@ let password = "greek@123"
 let () =
   let open Lwt_main in
   run (
-    Rest_client.login ~username ~password
+    login ~username ~password
     >>= fun config ->
     Lwt_io.printf "Login successful!\nSession Token: %s\nUser ID: %s\n"
-      config.Config.session_token
-      config.Config.user_id
+      config.session_token
+      config.user_id
   )
-

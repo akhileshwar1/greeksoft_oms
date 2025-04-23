@@ -1,4 +1,5 @@
 (executable
- (public_name greeksoft_oms)
+ (public_name oms)
  (name main)
- (libraries greeksoft_oms cohttp-lwt-unix yojson lwt))
+ (libraries oms cohttp-lwt-unix yojson lwt))
+

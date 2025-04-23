@@ -1,0 +1,3 @@
+(library
+ (name greeksoft)
+ (libraries lwt yojson cohttp-lwt-unix))
