@@ -15,4 +15,10 @@ let () =
     Lwt_io.printf "Login successful!\nSession Token: %s\nUser ID: %d\n"
       config.session_token
       config.user_id
+    >>= fun () ->
+    get_flag_values config
+    >>= fun config ->
+    Lwt_io.printf "Flags successful!\nIris ip: %s\nIris port: %d\n"
+      config.iris_ip
+      config.iris_port
   )
