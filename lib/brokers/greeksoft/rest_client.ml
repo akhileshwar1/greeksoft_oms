@@ -88,6 +88,53 @@ let get_flag_values config =
     failwith "Failed to extract iris_ip or iris_port from getFlagValues response"
 
 
+let get_login_info config =
+  let uri = Uri.of_string (api_url ^ "/getLoginInfo") in
+  let headers =
+    Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
+    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
+  in
+  let body_json =
+    `Assoc [
+      ("request", `Assoc [
+        ("svcVersion", `String "1.0.0");
+        ("svcGroup", `String "Login");
+        ("svcName", `String "getLoginInfo");
+        ("data", `Assoc [
+          ("gscid", `String config.gscid);
+        ])
+      ])
+    ]
+  in
+  let body = Cohttp_lwt.Body.of_string (Yojson.Basic.to_string body_json) in
+
+  Client.post ~headers ~body uri
+  >>= fun (_, body_stream) ->
+  Cohttp_lwt.Body.to_string body_stream
+  >>= fun body_str ->
+  Lwt_io.printf "HTTP getLoginInfo response: %s\n" body_str
+  >>= fun () ->
+  let json = Yojson.Basic.from_string body_str in
+
+  let open Yojson.Basic.Util in
+  let data =
+    json
+    |> member "response"
+    |> member "data"
+  in
+  let gcid_opt =
+    match member "gcid" data with
+    | `Null -> None
+    | value -> (try Some (to_int value) with _ -> None)
+  in
+
+  match gcid_opt with
+  | Some gcid ->
+    Lwt.return (Config.with_gcid config ~gcid)
+  | None ->
+    failwith "Failed to extract gscid from getLoginInfo response"
+
 let jlogin_new config =
   let uri = Uri.of_string (api_url ^ "/jloginNew") in
   let headers =

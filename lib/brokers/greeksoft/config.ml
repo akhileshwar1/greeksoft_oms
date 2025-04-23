@@ -8,6 +8,7 @@ type t = {
   gscid : string;
   password : string;
   app_id : string;
+  gcid : int;
 }
 
 let empty = {
@@ -19,6 +20,7 @@ let empty = {
   gscid = "DHAN";
   password = "greek@123";
   app_id = "";
+  gcid = -1;
 }
 
 let with_session config ~session_token ~user_id =
@@ -29,3 +31,6 @@ let with_iris config ~iris_ip ~iris_port ~heartbeat_interval =
 
 let with_app_id config ~app_id=
   {config with app_id}
+
+let with_gcid config ~gcid=
+  {config with gcid}

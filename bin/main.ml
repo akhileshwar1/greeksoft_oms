@@ -23,6 +23,10 @@ let () =
       config.iris_port
       config.heartbeat_interval
     >>= fun () ->
+    get_login_info config
+    >>= fun config ->
+    Lwt_io.printf "GetLoginInfo successful!\nGCID: %d\n" config.gcid
+    >>= fun () ->
     jlogin_new config
     >>= fun _ ->
     Lwt_io.printf "JLoginNew successful!\n"
