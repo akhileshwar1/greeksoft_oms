@@ -3,14 +3,14 @@ type t = {
   iris_ip : string;
   iris_port : int;
   session_token : string;
-  user_id : string;
+  user_id : int;
 }
 
 let empty = {
   iris_ip = "";
   iris_port = 0;
   session_token = "";
-  user_id = "";
+  user_id = -1;
 }
 
 let with_session config ~session_token ~user_id =
