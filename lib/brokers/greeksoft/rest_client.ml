@@ -79,9 +79,10 @@ let get_flag_values config =
 
   let iris_ip_opt = find_string_opt "Iris_IP" data in
   let iris_port_opt = find_int_opt "Iris_Port" data in
+  let heartbeat_interval_opt = find_int_opt "heartbeat_Intervals" data in
 
-  match iris_ip_opt, iris_port_opt with
-  | Some iris_ip, Some iris_port ->
-    Lwt.return (Config.with_iris config ~iris_ip ~iris_port)
+  match iris_ip_opt, iris_port_opt, heartbeat_interval_opt with
+  | Some iris_ip, Some iris_port, Some heartbeat_interval ->
+    Lwt.return (Config.with_iris config ~iris_ip ~iris_port ~heartbeat_interval)
   | _ ->
     failwith "Failed to extract iris_ip or iris_port from getFlagValues response"

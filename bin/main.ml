@@ -18,7 +18,8 @@ let () =
     >>= fun () ->
     get_flag_values config
     >>= fun config ->
-    Lwt_io.printf "Flags successful!\nIris ip: %s\nIris port: %d\n"
+    Lwt_io.printf "Flags successful!\nIris ip: %s\nIris port: %d\nheartbeat interval: %d\n"
       config.iris_ip
       config.iris_port
+      config.heartbeat_interval
   )
