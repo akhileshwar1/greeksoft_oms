@@ -22,4 +22,8 @@ let () =
       config.iris_ip
       config.iris_port
       config.heartbeat_interval
+    >>= fun () ->
+    jlogin_new config
+    >>= fun _ ->
+    Lwt_io.printf "JLoginNew successful!\n"
   )

@@ -5,6 +5,9 @@ type t = {
   session_token : string;
   user_id : int;
   heartbeat_interval: int;
+  gscid : string;
+  password : string;
+  app_id : string;
 }
 
 let empty = {
@@ -13,6 +16,9 @@ let empty = {
   session_token = "";
   user_id = -1;
   heartbeat_interval = -1;
+  gscid = "DHAN";
+  password = "greek@123";
+  app_id = "";
 }
 
 let with_session config ~session_token ~user_id =
@@ -20,3 +26,6 @@ let with_session config ~session_token ~user_id =
 
 let with_iris config ~iris_ip ~iris_port ~heartbeat_interval =
   {config with iris_ip; iris_port; heartbeat_interval}
+
+let with_app_id config ~app_id=
+  {config with app_id}

@@ -86,3 +86,42 @@ let get_flag_values config =
     Lwt.return (Config.with_iris config ~iris_ip ~iris_port ~heartbeat_interval)
   | _ ->
     failwith "Failed to extract iris_ip or iris_port from getFlagValues response"
+
+
+let jlogin_new config =
+  let uri = Uri.of_string (api_url ^ "/jloginNew") in
+  let headers =
+    Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
+    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
+  in
+  let body_json =
+    `Assoc [
+      ("request", `Assoc [
+        ("svcName", `String "jloginNew");
+        ("svcGroup", `String "Login");
+        ("data", `Assoc [
+          ("pan_dob", `String "01/01/1901");
+          ("gscid", `String config.gscid);
+          ("pass", `String config.password);
+        ])
+      ])
+    ]
+  in
+  let body = Cohttp_lwt.Body.of_string (Yojson.Basic.to_string body_json) in
+
+  Client.post ~headers ~body uri
+  >>= fun (_, body_stream) ->
+  Cohttp_lwt.Body.to_string body_stream
+  >>= fun body_str ->
+  Lwt_io.printf "HTTP jloginNew response: %s\n" body_str
+  >>= fun () ->
+  let json = Yojson.Basic.from_string body_str in
+  let app_id = 
+    json 
+    |> Yojson.Basic.Util.member "response" 
+    |> Yojson.Basic.Util.member "appID"
+    |> Yojson.Basic.to_string in
+  Lwt_io.printf "app id is : %s\n" app_id 
+  >>= fun () ->
+  Lwt.return (Config.with_app_id config ~app_id)
