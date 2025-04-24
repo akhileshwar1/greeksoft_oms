@@ -201,3 +201,5 @@ let place_order ~headers ~body =
   Cohttp_lwt.Body.to_string body_stream
   >>= fun body_str ->
   Lwt_io.printf "Order Entry HTTP Response: %s\n" body_str
+  >>= fun () ->
+  Lwt.return body_str

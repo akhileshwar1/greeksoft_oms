@@ -28,4 +28,5 @@ type t = {
   product : product_type;
   validity : validity_type;
   strategy_name : string option;
+  broker_order_id : string option;
 }

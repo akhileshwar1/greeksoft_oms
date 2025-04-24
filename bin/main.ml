@@ -19,7 +19,11 @@ let () =
         order_type = Entities.Order.Limit;
         product = Entities.Order.CNC;
         validity = Entities.Order.DAY;
-        strategy_name = Some "STOCK";
+        strategy_name = Some "Glitters_bb";
+        broker_order_id = Some "";
       } in
     Om.Order.place_order config dummy_order
+    >>= fun updated_order ->
+    Lwt_io.printf "Order placed with broker_order_id: %s\n"
+      (Option.value ~default:"<none>" updated_order.broker_order_id)
   )

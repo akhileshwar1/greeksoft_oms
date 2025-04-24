@@ -1,5 +1,6 @@
 (* om order management *)
 open Entities.Order
+open Lwt.Infix
 
 (* Map to Greeksoft API codes *)
 let side_to_int = function Buy -> 1 | Sell -> 2
@@ -50,5 +51,22 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   match config.broker with
   | "greeksoft" ->
     Greeksoft.Rest_client.place_order ~headers ~body:json
+    >>= fun body_str ->
+    let json = Yojson.Basic.from_string body_str in
+    let open Yojson.Basic.Util in
+    let gorderid_opt =
+      json
+      |> member "response"
+      |> member "data"
+      |> member "gorderid"
+      |> to_string_option
+    in
+    begin match gorderid_opt with
+      | Some gorderid ->
+        let updated_order = { order with broker_order_id = Some gorderid } in
+        Lwt.return updated_order
+      | None ->
+        failwith "gorderid missing in order response"
+      end
   | _ ->
     failwith "Unsupported broker"
