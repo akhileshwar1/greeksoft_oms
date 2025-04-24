@@ -2,7 +2,7 @@
 
 open Lwt.Infix
 open Cohttp_lwt_unix
-open Config
+open Entities.Config
 
 let auth_url = "http://greekapi.greeksoft.in:3001"
 let api_url = "http://restapi.greeksoft.in:3333"
@@ -39,7 +39,7 @@ let login ~username ~password =
 
   match session_token_opt, user_id_opt with
   | Some session_token_opt, Some user_id_opt ->
-    Lwt.return (Config.with_session Config.empty ~session_token:session_token_opt ~user_id:user_id_opt)
+    Lwt.return (with_session empty ~session_token:session_token_opt ~user_id:user_id_opt)
   | _ ->
     failwith "Failed to extract session_token or user_id from login response"
 
@@ -83,7 +83,7 @@ let get_flag_values config =
 
   match iris_ip_opt, iris_port_opt, heartbeat_interval_opt with
   | Some iris_ip, Some iris_port, Some heartbeat_interval ->
-    Lwt.return (Config.with_iris config ~iris_ip ~iris_port ~heartbeat_interval)
+    Lwt.return (with_iris config ~iris_ip ~iris_port ~heartbeat_interval)
   | _ ->
     failwith "Failed to extract iris_ip or iris_port from getFlagValues response"
 
@@ -95,6 +95,10 @@ let get_login_info config =
     |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
     |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
+  let gscid=
+    match config.broker_config with
+    | Greeksoft g -> g.gscid
+  in
   let body_json =
     `Assoc [
       ("request", `Assoc [
@@ -102,7 +106,7 @@ let get_login_info config =
         ("svcGroup", `String "Login");
         ("svcName", `String "getLoginInfo");
         ("data", `Assoc [
-          ("gscid", `String config.gscid);
+          ("gscid", `String gscid);
         ])
       ])
     ]
@@ -131,7 +135,7 @@ let get_login_info config =
 
   match gcid_opt with
   | Some gcid ->
-    Lwt.return (Config.with_gcid config ~gcid)
+    Lwt.return (with_gcid config ~gcid)
   | None ->
     failwith "Failed to extract gscid from getLoginInfo response"
 
@@ -142,6 +146,10 @@ let jlogin_new config =
     |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
     |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
+  let gscid, password =
+    match config.broker_config with
+    | Greeksoft g -> g.gscid, g.password
+  in
   let body_json =
     `Assoc [
       ("request", `Assoc [
@@ -149,8 +157,8 @@ let jlogin_new config =
         ("svcGroup", `String "Login");
         ("data", `Assoc [
           ("pan_dob", `String "01/01/1901");
-          ("gscid", `String config.gscid);
-          ("pass", `String config.password);
+          ("gscid", `String gscid);
+          ("pass", `String password);
         ])
       ])
     ]
@@ -171,30 +179,24 @@ let jlogin_new config =
     |> Yojson.Basic.to_string in
   Lwt_io.printf "app id is : %s\n" app_id 
   >>= fun () ->
-  Lwt.return (Config.with_app_id config ~app_id)
+  Lwt.return (with_app_id config ~app_id)
 
 
-let place_order (config : Config.t) (order : Entities.Order.t) =
+let place_order ~headers ~body =
   let uri = Uri.of_string (api_url ^ "/NewOrderRequest") in
-  let headers =
-    Cohttp.Header.init ()
-    |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
-    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
-  in
-  let data_json = Order.to_greeksoft_json config order in
-  let body_json =
+  let wrapped_body =
     `Assoc [
       ("request", `Assoc [
-        ("data", data_json);
+        ("data", body);
         ("response_format", `String "json");
         ("request_type", `String "subscribe");
         ("streaming_type", `String "NewOrderRequest")
       ])
     ]
+    |> Yojson.Basic.to_string
+    |> Cohttp_lwt.Body.of_string
   in
-  let body = Cohttp_lwt.Body.of_string (Yojson.Basic.to_string body_json) in
-
-  Client.post ~headers ~body uri
+  Client.post ~headers ~body:wrapped_body uri
   >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
   >>= fun body_str ->

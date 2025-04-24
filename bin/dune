@@ -1,5 +1,5 @@
 (executable
  (public_name oms)
  (name main)
- (libraries oms cohttp-lwt-unix yojson lwt))
+ (libraries om entities cohttp-lwt-unix yojson lwt))
 

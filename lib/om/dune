@@ -1,0 +1,3 @@
+(library
+ (name om)
+ (libraries entities greeksoft yojson))
