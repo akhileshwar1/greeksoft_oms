@@ -11,6 +11,7 @@ let string_of_status status =
 let () =
   let username = "DHAN" in
   let password = "greek@123" in
+  let token = 101001232 in
   Lwt_main.run (
     Om.Session.login ~username ~password
     >>= fun config ->
@@ -37,4 +38,13 @@ let () =
     Om.Order.cancel_order config updated_order
     >>= fun cancelled_order ->
     Lwt_io.printf "Order status after cancellation: %s\n" (string_of_status cancelled_order.status)
+    >>= fun () ->
+    Om.Position.get_position_by_token config token
+    >>= fun pos ->
+    Lwt_io.printf "Position for token %d:\nSymbol: %s\nNetQty: %d\nLTP: %s\nDay PnL: %.2f\n"
+      pos.token
+      pos.trade_symbol
+      pos.net_qty
+      (match pos.ltp with Some l -> string_of_float l | None -> "N/A")
+      pos.day_pnl
   )

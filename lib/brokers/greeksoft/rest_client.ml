@@ -213,3 +213,25 @@ let cancel_order ~headers ~order_id =
   Lwt_io.printf "Cancel Order HTTP Response: %s\n" body_str
   >>= fun () ->
   Lwt.return body_str
+
+
+let get_strategy_positions (config : Entities.Config.t) : Yojson.Basic.t list Lwt.t =
+  let gscid =
+    match config.broker_config with
+    | Greeksoft g -> g.gscid
+  in
+  let uri = Uri.of_string (api_url ^ "/getStrategyNameWiseNetPositionDetail?gscid=" ^ gscid) in
+  let headers =
+    Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
+  in
+
+  Cohttp_lwt_unix.Client.get ~headers uri
+  >>= fun (_, body_stream) ->
+  Cohttp_lwt.Body.to_string body_stream
+  >>= fun body_str ->
+  let json = Yojson.Basic.from_string body_str in
+  let data = Yojson.Basic.Util.member "data" json in
+  match data with
+  | `List lst -> Lwt.return lst
+  | _ -> failwith "Expected a list of positions"
