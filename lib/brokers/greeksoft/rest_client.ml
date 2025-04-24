@@ -203,3 +203,13 @@ let place_order ~headers ~body =
   Lwt_io.printf "Order Entry HTTP Response: %s\n" body_str
   >>= fun () ->
   Lwt.return body_str
+
+let cancel_order ~headers ~order_id =
+  let uri = Uri.of_string (api_url ^ "/Order/" ^ order_id) in
+  Client.delete ~headers uri
+  >>= fun (_, body_stream) ->
+  Cohttp_lwt.Body.to_string body_stream
+  >>= fun body_str ->
+  Lwt_io.printf "Order Entry HTTP Response: %s\n" body_str
+  >>= fun () ->
+  Lwt.return body_str

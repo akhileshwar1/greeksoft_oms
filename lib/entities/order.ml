@@ -17,6 +17,11 @@ type validity_type =
   | DAY
   | IOC
 
+type status_type =
+  | Cancelled
+  | Pending
+  | Rejected
+
 type t = {
   tradingsymbol : string;
   exchange : string;
@@ -29,4 +34,5 @@ type t = {
   validity : validity_type;
   strategy_name : string option;
   broker_order_id : string option;
+  status : status_type;
 }

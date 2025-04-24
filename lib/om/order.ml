@@ -70,3 +70,29 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
       end
   | _ ->
     failwith "Unsupported broker"
+
+let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
+  let headers =
+  Cohttp.Header.init ()
+  |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
+  |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
+  in
+  match config.broker with
+  | "greeksoft" ->
+    Greeksoft.Rest_client.cancel_order ~headers ~order_id:(Option.get order.broker_order_id)
+    >>= fun body_str ->
+    let json = Yojson.Basic.from_string body_str in
+    let open Yojson.Basic.Util in
+    let success =
+      json
+      |> member "success"
+    in
+    begin match Yojson.Basic.to_string success with
+      | "true" ->
+        let updated_order = { order with status = Cancelled} in
+        Lwt.return updated_order
+      | _ ->
+        failwith "Not cancelled!"
+      end
+  | _ ->
+    failwith "Unsupported broker"
