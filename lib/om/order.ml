@@ -87,7 +87,7 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
       json
       |> member "success"
     in
-    begin match Yojson.Basic.to_string success with
+    begin match Yojson.Basic.Util.to_string success with
       | "true" ->
         let updated_order = { order with status = Cancelled} in
         Lwt.return updated_order

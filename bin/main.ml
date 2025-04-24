@@ -2,6 +2,12 @@
 
 open Lwt.Infix
 
+let string_of_status status = 
+  match status with
+  | Entities.Order.Cancelled -> "Cancelled"
+  | Entities.Order.Pending -> "Pending"
+  | Entities.Order.Rejected -> "Rejected"
+
 let () =
   let username = "DHAN" in
   let password = "greek@123" in
@@ -29,6 +35,6 @@ let () =
       (Option.value ~default:"<none>" updated_order.broker_order_id)
     >>= fun () ->
     Om.Order.cancel_order config updated_order
-    >>= fun _ ->
-    Lwt_io.printf "Order status after cancellation: \n"
+    >>= fun cancelled_order ->
+    Lwt_io.printf "Order status after cancellation: %s\n" (string_of_status cancelled_order.status)
   )

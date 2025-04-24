@@ -210,6 +210,6 @@ let cancel_order ~headers ~order_id =
   >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
   >>= fun body_str ->
-  Lwt_io.printf "Order Entry HTTP Response: %s\n" body_str
+  Lwt_io.printf "Cancel Order HTTP Response: %s\n" body_str
   >>= fun () ->
   Lwt.return body_str
