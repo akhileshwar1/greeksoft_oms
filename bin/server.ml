@@ -19,6 +19,7 @@ let login_handler req =
   let password = body |> member "password" |> to_string in
   Om.Session.login ~username ~password
   >>= fun config ->
+  Om.Session_store.set config;
   let json =
     `Assoc [
       ("session_token", `String config.session_token);
@@ -35,20 +36,22 @@ let place_order_handler req =
     | None -> failwith "Expected JSON body"
   in
   let order = Entities.Order.of_yojson body in
-
-  Om.Session.login ~username:"DHAN" ~password:"greek@123"
-  >>= fun config ->
-  Om.Order.place_order config order
-  >>= fun updated_order ->
-  let response_json =
-    `Assoc [
-      ("broker_order_id", `String (Option.value ~default:"" updated_order.broker_order_id));
-      ("status", `String (updated_order.status
-        |> Option.map Entities.Order.status_to_string
-        |> Option.value ~default:"Unknown"))
-    ]
-  in
-  respond_json response_json
+  
+  match Om.Session_store.get () with
+  | Some config ->
+    Om.Order.place_order config order
+    >>= fun updated_order ->
+    let response_json =
+      `Assoc [
+        ("broker_order_id", `String (Option.value ~default:"" updated_order.broker_order_id));
+        ("status", `String (updated_order.status
+          |> Option.map Entities.Order.status_to_string
+          |> Option.value ~default:"Unknown"))
+      ]
+    in
+    respond_json response_json
+  | None ->
+    failwith "No active session. Please log in first."
 
 let () =
   App.empty
