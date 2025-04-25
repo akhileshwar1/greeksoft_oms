@@ -11,14 +11,14 @@ open Lwt.Infix
 let () =
   let username = "DHAN" in
   let password = "greek@123" in
-  (* let token = 101011131 in *)
+  let token = 101011131 in
   Lwt_main.run (
     Om.Session.login ~username ~password
     >>= fun config ->
     let dummy_order =
       {
         Entities.Order.tradingsymbol = "TCS";
-        exchange = "NSE";
+        exchange = "NSE FO";
         quantity = 1;
         price = 1.0;
         trigger_price = 0.0;
@@ -38,7 +38,7 @@ let () =
     Om.Order.cancel_order config updated_order
     >>= fun cancelled_order ->
     Lwt_io.printf "Order status after cancellation: %s\n" (string_of_status cancelled_order.status) *)
-    (*>>= fun () ->
+    >>= fun () ->
     Om.Position.get_position_by_token config token
     >>= fun pos ->
     Lwt_io.printf "Position for token %d:\nSymbol: %s\nNetQty: %d\nLTP: %s\nDay PnL: %.2f\n"
@@ -46,7 +46,7 @@ let () =
       pos.trade_symbol
       pos.net_qty
       (match pos.ltp with Some l -> string_of_float l | None -> "N/A")
-      pos.day_pnl*)
+      pos.day_pnl
     >>= fun () ->
     Om.Order.get_order_status config updated_order
     >>= fun updated_order ->

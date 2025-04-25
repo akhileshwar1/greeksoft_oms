@@ -215,17 +215,8 @@ let cancel_order ~headers ~order_id =
   Lwt.return body_str
 
 
-let get_strategy_positions (config : Entities.Config.t) : Yojson.Basic.t list Lwt.t =
-  let gscid =
-    match config.broker_config with
-    | Greeksoft g -> g.gscid
-  in
+let get_strategy_positions ~headers ~gscid : Yojson.Basic.t list Lwt.t =
   let uri = Uri.of_string (api_url ^ "/getStrategyNameWiseNetPositionDetail?gscid=" ^ gscid) in
-  let headers =
-    Cohttp.Header.init ()
-    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
-  in
-
   Cohttp_lwt_unix.Client.get ~headers uri
   >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
