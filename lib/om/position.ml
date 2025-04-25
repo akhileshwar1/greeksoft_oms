@@ -1,4 +1,5 @@
 open Lwt.Infix
+open Entities.Position
 
 let get_position_by_token (config : Entities.Config.t) (token : int) : Entities.Position.t Lwt.t =
   match config.broker with

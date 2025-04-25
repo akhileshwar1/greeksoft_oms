@@ -230,6 +230,8 @@ let get_strategy_positions (config : Entities.Config.t) : Yojson.Basic.t list Lw
   >>= fun (_, body_stream) ->
   Cohttp_lwt.Body.to_string body_stream
   >>= fun body_str ->
+  Lwt_io.printf "Monitor HTTP Response: %s\n" body_str
+  >>= fun () ->
   let json = Yojson.Basic.from_string body_str in
   let data = Yojson.Basic.Util.member "data" json in
   match data with
