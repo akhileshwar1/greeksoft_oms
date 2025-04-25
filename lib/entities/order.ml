@@ -21,6 +21,22 @@ type status_type =
   | Cancelled
   | Pending
   | Rejected
+  | Completed
+  | Unknown
+
+let string_to_status = function
+  | "Cancelled" -> Cancelled
+  | "Pending" -> Pending
+  | "Rejected" -> Rejected
+  | "Completed" -> Completed
+  | _ -> Unknown (* Fallback *)
+
+let status_to_string = function
+  | Cancelled -> "Cancelled"
+  | Pending -> "Pending"
+  | Rejected -> "Rejected"
+  | Completed -> "Completed"
+  | _ -> "Unknown"
 
 type t = {
   tradingsymbol : string;
@@ -34,5 +50,5 @@ type t = {
   validity : validity_type;
   strategy_name : string option;
   broker_order_id : string option;
-  status : status_type;
+  status : status_type option;
 }

@@ -1,6 +1,7 @@
 (* om order management *)
 open Entities.Order
 open Lwt.Infix
+open Yojson.Basic.Util
 
 (* Map to Greeksoft API codes *)
 let side_to_int = function Buy -> 1 | Sell -> 2
@@ -12,7 +13,7 @@ let validity_type_to_int = function DAY -> 0 | IOC -> 1
 let to_greeksoft_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
   match config.broker_config with
   | Greeksoft g ->
-      let gtoken = "101001232" in
+      let gtoken = "101011131" in
       let corderid = "3" in
       `Assoc [
         ("trigger_price", `String (string_of_float order.trigger_price));
@@ -89,10 +90,47 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
     in
     begin match Yojson.Basic.Util.to_string success with
       | "true" ->
-        let updated_order = { order with status = Cancelled} in
+        let updated_order = { order with status = Some Cancelled} in
         Lwt.return updated_order
       | _ ->
         failwith "Not cancelled!"
+      end
+  | _ ->
+    failwith "Unsupported broker"
+
+let get_order_status (config : Entities.Config.t) (order : Entities.Order.t) : Entities.Order.t Lwt.t =
+  match config.broker with
+  | "greeksoft" ->
+    let gorderid_opt = order.broker_order_id in
+    let gscid =
+      match config.broker_config with
+      | Greeksoft g -> g.gscid
+    in
+    let token = config.session_token in
+
+    Greeksoft.Rest_client.get_order_status
+      ~session_token:token
+      ~gscid
+      ~gorderid_opt
+    >>= fun json ->
+    let data = member "data" json in
+    begin match data with
+      | `List (first :: _) ->
+        let status_str = member "order_status" first |> to_string in
+        let status =
+          status_str
+          |> Greeksoft.Order.greeksoft_string_to_status
+          |> Greeksoft.Order.om_status
+        in
+        let traded_qty = member "traded_qty" first |> to_int in
+        let updated_order = {
+          order with
+          status = Some status;
+          quantity = traded_qty;
+        } in
+        Lwt.return updated_order
+      | _ ->
+        failwith "Could not extract order status from response"
       end
   | _ ->
     failwith "Unsupported broker"

@@ -237,3 +237,25 @@ let get_strategy_positions (config : Entities.Config.t) : Yojson.Basic.t list Lw
   match data with
   | `List lst -> Lwt.return lst
   | _ -> failwith "Expected a list of positions"
+
+
+let get_order_status ~session_token ~gscid ~gorderid_opt =
+  let gorderid = match gorderid_opt with
+    | Some id -> id
+    | None -> failwith "Missing broker_order_id"
+  in
+  let query = Uri.pct_encode ("greekOrderNo=" ^ gorderid ^ "&gscid=" ^ gscid) in
+  let uri = Uri.of_string (api_url ^ "/getOrderDetail?" ^ query) in
+
+  let headers =
+    Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Authorization" session_token
+  in
+  Cohttp_lwt_unix.Client.get ~headers uri
+  >>= fun (_, body_stream) ->
+  Cohttp_lwt.Body.to_string body_stream
+  >>= fun body_str ->
+  Lwt_io.printf "Order status HTTP Response: %s\n" body_str
+  >>= fun () ->
+  let json = Yojson.Basic.from_string body_str in
+  Lwt.return json
