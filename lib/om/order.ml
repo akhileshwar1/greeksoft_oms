@@ -9,15 +9,31 @@ let order_type_to_int = function Limit -> 1 | Market -> 2
 let product_type_to_int = function CNC -> 0 | NRML -> 1 | MIS -> 2
 let validity_type_to_int = function DAY -> 0 | IOC -> 1
 
+let normalize_data_symbol (data_symbol: string) : string =
+  (* Strip exchange and year *)
+  match String.split_on_char ':' data_symbol with
+  | [_exchange; raw] ->
+    raw 
+  | _ -> data_symbol  
+
 (* Create JSON for Greeksoft from Order.t and Config.t *)
 let to_greeksoft_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
   match config.broker_config with
   | Greeksoft g ->
-      let gtoken = "101011131" in
-      let corderid = "3" in
+      let tradingsymbol = normalize_data_symbol order.tradingsymbol in
+      let gtoken = Greeksoft.Contracts_store.get_token ~symbol:tradingsymbol in
+    let gtoken_str =
+      match gtoken with
+      | Some token -> string_of_int token
+      | None -> ""  (* or some default string or fail with an error *)
+      in
+    
+    let () = Printf.printf "gtoken is %s\n" gtoken_str in
+
+    let corderid = "3" in
       `Assoc [
         ("trigger_price", `String (string_of_float order.trigger_price));
-        ("gtoken", `String gtoken);
+        ("gtoken", `String gtoken_str);
         ("side", `String (string_of_int (side_to_int order.side)));
         ("gcid", `Int g.gcid);
         ("validity", `String (string_of_int (validity_type_to_int order.validity)));
@@ -43,7 +59,6 @@ let to_greeksoft_json (config : Entities.Config.t) (order : Entities.Order.t) : 
 
 (* OMS-wide place_order interface *)
 let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
-  let json = to_greeksoft_json config order in
   let headers =
   Cohttp.Header.init ()
   |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
@@ -51,6 +66,7 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   in
   match config.broker with
   | "greeksoft" ->
+    let json = to_greeksoft_json config order in
     Greeksoft.Rest_client.place_order ~headers ~body:json
     >>= fun body_str ->
     let json = Yojson.Basic.from_string body_str in
