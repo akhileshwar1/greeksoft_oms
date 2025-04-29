@@ -3,8 +3,7 @@ open Lwt.Infix
 
 let respond_json (json : Yojson.Basic.t) =
   let body = Yojson.Basic.to_string json in
-  let headers = Opium.Headers.of_list [ ("Content-Type", "application/json") ] in
-  Opium.Response.make ~headers ~body:(Body.of_string body) ()
+  Opium.Response.of_plain_text ~headers:(Headers.of_list [("Content-Type", "application/json")]) body
   |> Lwt.return
 
 let login_handler req =
@@ -29,16 +28,19 @@ let login_handler req =
   respond_json json
 
 let place_order_handler req =
+  Lwt_io.printl "Received request for /order/place" >>= fun () ->
   Opium.Request.to_json req
   >>= fun body_opt ->
   let body = match body_opt with
     | Some json -> json
     | None -> failwith "Expected JSON body"
   in
+  Lwt_io.printf "Request body: %s\n" (Yojson.Safe.to_string body) >>= fun () ->
   let order = Entities.Order.of_yojson body in
-  
+  Lwt_io.printf "Request body done: \n"  >>= fun () ->
   match Om.Session_store.get () with
   | Some config ->
+    Lwt_io.printf "Request body done in Some: \n"  >>= fun () ->
     Om.Order.place_order config order
     >>= fun updated_order ->
     let response_json =
@@ -51,6 +53,7 @@ let place_order_handler req =
     in
     respond_json response_json
   | None ->
+    Lwt_io.printf "Request body done in None: \n"  >>= fun () ->
     failwith "No active session. Please log in first."
 
 let () =
