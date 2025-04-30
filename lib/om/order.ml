@@ -17,7 +17,7 @@ let normalize_data_symbol (data_symbol: string) : string =
   | _ -> data_symbol  
 
 (* Create JSON for Greeksoft from Order.t and Config.t *)
-let to_greeksoft_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
+let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
   match config.broker_config with
   | Greeksoft g ->
       let tradingsymbol = normalize_data_symbol order.tradingsymbol in
@@ -66,7 +66,7 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   in
   match config.broker with
   | "greeksoft" ->
-    let json = to_greeksoft_json config order in
+    let json = to_json config order in
     Greeksoft.Rest_client.place_order ~headers ~body:json
     >>= fun body_str ->
     let json = Yojson.Basic.from_string body_str in
