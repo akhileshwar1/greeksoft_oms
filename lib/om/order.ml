@@ -21,14 +21,17 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
   match config.broker_config with
   | Greeksoft g ->
       let tradingsymbol = normalize_data_symbol order.tradingsymbol in
-      let gtoken = Greeksoft.Contracts_store.get_token ~symbol:tradingsymbol in
+
+    let () = Printf.printf "tradingsymbol is %s\n%!" tradingsymbol in
+    let gtoken = Greeksoft.Contracts_store.get_token ~symbol:tradingsymbol in
     let gtoken_str =
       match gtoken with
       | Some token -> string_of_int token
       | None -> ""  (* or some default string or fail with an error *)
       in
+    let tradingsymbol = Greeksoft.Contracts_store.get_symbol ~token:(Option.get gtoken) in
     
-    let () = Printf.printf "gtoken is %s\n" gtoken_str in
+    let () = Printf.printf "gtoken is %s, tradesymbol is %s \n%!" gtoken_str (Option.get tradingsymbol) in
 
     let corderid = "3" in
       `Assoc [
@@ -40,7 +43,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("price", `String (string_of_float order.price));
         ("exchange", `String order.exchange);
         ("disclosed_qty", `String "0");
-        ("tradeSymbol", `String order.tradingsymbol);
+        ("tradeSymbol", `String (Option.get tradingsymbol));
         ("lot", `String "1");
         ("order_type", `String (string_of_int (order_type_to_int order.order_type)));
         ("product", `String (string_of_int (product_type_to_int order.product)));
@@ -60,12 +63,13 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
 (* OMS-wide place_order interface *)
 let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   let headers =
-  Cohttp.Header.init ()
-  |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
-  |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
+    Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
+    |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
-  match config.broker with
-  | "greeksoft" ->
+  match config.broker_config with
+  | Greeksoft _ ->
+    Printf.printf "in match greeksoft%!";
     let json = to_json config order in
     Greeksoft.Rest_client.place_order ~headers ~body:json
     >>= fun body_str ->
@@ -85,8 +89,6 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
       | None ->
         failwith "gorderid missing in order response"
       end
-  | _ ->
-    failwith "Unsupported broker"
 
 let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
   let headers =

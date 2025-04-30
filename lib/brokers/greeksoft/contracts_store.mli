@@ -1,7 +1,7 @@
 type contract = {
   token : int;
-  symbol : string;
-  exchange : string;
+  data_symbol : string;
+  trading_symbol : string;
 }
 
   val fetch_and_store : Entities.Config.t -> Entities.Config.t Lwt.t
