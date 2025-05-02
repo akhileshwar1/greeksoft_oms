@@ -8,6 +8,7 @@ type greeksoft_config = {
   password : string;
   app_id : string;
   gcid : int;
+  session_id : string;
 }
 
 type broker_config =
@@ -30,9 +31,10 @@ let empty = {
     iris_port = 0;
     heartbeat_interval = -1;
     gscid = "DHAN";
-    password = "";
+    password = "d@1111111111";
     app_id = "";
     gcid = -1;
+    session_id = "";
   };
 }
 
@@ -45,10 +47,10 @@ let with_iris config ~iris_ip ~iris_port ~heartbeat_interval =
       let g' = { g with iris_ip; iris_port; heartbeat_interval } in
       { config with broker_config = Greeksoft g' }
 
-let with_app_id config ~app_id =
+let with_session_id config ~session_id=
   match config.broker_config with
   | Greeksoft g ->
-      let g' = { g with app_id } in
+      let g' = { g with session_id } in
       { config with broker_config = Greeksoft g' }
 
 let with_gcid config ~gcid =

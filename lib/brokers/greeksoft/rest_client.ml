@@ -146,7 +146,7 @@ let jlogin_new config =
     |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
     |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
-  let gscid, password =
+  let gscid, password=
     match config.broker_config with
     | Greeksoft g -> g.gscid, g.password
   in
@@ -157,8 +157,10 @@ let jlogin_new config =
         ("svcGroup", `String "Login");
         ("data", `Assoc [
           ("pan_dob", `String "01/01/1901");
+          ("version_no", `String "1.0.1.10");
+          ("brokerid", `String "1");
           ("gscid", `String gscid);
-          ("pass", `String password);
+          ("pass", `String (Digest.to_hex (Digest.string password))); (* md5 hash the password *)
         ])
       ])
     ]
@@ -172,14 +174,14 @@ let jlogin_new config =
   Lwt_io.printf "HTTP jloginNew response: %s\n" body_str
   >>= fun () ->
   let json = Yojson.Basic.from_string body_str in
-  let app_id = 
+  let session_id = 
     json 
     |> Yojson.Basic.Util.member "response" 
-    |> Yojson.Basic.Util.member "appID"
+    |> Yojson.Basic.Util.member "sessionId"
     |> Yojson.Basic.to_string in
-  Lwt_io.printf "app id is : %s\n" app_id 
+  Lwt_io.printf "session id is : %s\n" session_id 
   >>= fun () ->
-  Lwt.return (with_app_id config ~app_id)
+  Lwt.return (with_session_id config ~session_id)
 
 
 let place_order ~headers ~body =

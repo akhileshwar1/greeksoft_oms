@@ -6,6 +6,7 @@ type greeksoft_config = {
   password : string;
   app_id : string;
   gcid : int;
+  session_id : string;
 }
 
 type broker_config =
@@ -26,8 +27,8 @@ val with_session :
 val with_iris :
   t -> iris_ip:string -> iris_port:int -> heartbeat_interval:int -> t
 
-val with_app_id :
-  t -> app_id:string -> t
+val with_session_id:
+  t -> session_id:string -> t
 
 val with_gcid :
   t -> gcid:int -> t

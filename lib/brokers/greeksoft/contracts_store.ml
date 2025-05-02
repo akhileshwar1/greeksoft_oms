@@ -43,8 +43,8 @@ let parse_csv_line line =
         | _ -> failwith "Malformed CSV line (could not get last two columns)" (* Should not happen if num_columns >= 13 *)
       in
 
-      Printf.printf "processed line token %d, data_symbol %s, trading_symbol %s\n%!"
-        token data_symbol trading_symbol;
+      (* Printf.printf "processed line token %d, data_symbol %s, trading_symbol %s\n%!" *)
+        (* token data_symbol trading_symbol; *)
 
       (* Return the data symbol (as key) and the new contract record *)
       (data_symbol, { token; data_symbol = data_symbol; trading_symbol = trading_symbol })
@@ -106,7 +106,7 @@ let fetch_and_store config =
     Cohttp_lwt.Body.to_string body_stream
     >>= fun compressed_str ->
     let csv_str = decompress_gzip compressed_str in
-    Printf.printf "csv str is: %s\n" csv_str; 
+    (* Printf.printf "csv str is: %s\n" csv_str;  *)
     let lines = String.split_on_char '\n' csv_str in
     let data_lines = List.tl lines in
     let len = List.length data_lines in
@@ -133,7 +133,7 @@ let get_token ~symbol =
     | None -> Some 0 
   
 let get_symbol ~token =
-  Printf.printf "Looking up contract for token: %d\n%!" token;
+  (* Printf.printf "Looking up contract for token: %d\n%!" token; *)
   let result = Hashtbl.find_opt contracts_by_token token in
   match result with
     | Some contract -> Some contract.trading_symbol
