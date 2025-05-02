@@ -53,7 +53,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("tradeSymbol", `String "NIFTY");
         ("lot", `String (string_of_int lot));
         ("order_type", `String (string_of_int (order_type_to_int order.order_type)));
-        ("product", `String (string_of_int (product_type_to_int order.product)));
+        ("product", `String (string_of_int (product_type_to_int order.product))); (*Cnc for delivery*)
         ("qty", `String (string_of_int quantity));
         ("corderid", `String corderid);
         ("amo", `String "0");
