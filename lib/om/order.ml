@@ -16,6 +16,12 @@ let normalize_data_symbol (data_symbol: string) : string =
     raw 
   | _ -> data_symbol  
 
+let adjust_order_quantity quantity =
+  let lot_size = 75 in
+  let lot = quantity / lot_size in
+  let adjusted_quantity = lot * lot_size in
+  (lot, adjusted_quantity)
+
 (* Create JSON for Greeksoft from Order.t and Config.t *)
 let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
   match config.broker_config with
@@ -30,6 +36,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
       | None -> ""  (* or some default string or fail with an error *)
       in
     let tradingsymbol = Greeksoft.Contracts_store.get_symbol ~token:(Option.get gtoken) in
+    let (lot, quantity) = adjust_order_quantity order.quantity in
     
     let () = Printf.printf "gtoken is %s, tradesymbol is %s \n%!" gtoken_str (Option.get tradingsymbol) in
 
@@ -43,11 +50,11 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("price", `String (string_of_float order.price));
         ("exchange", `String order.exchange);
         ("disclosed_qty", `String "0");
-        ("tradeSymbol", `String (Option.get tradingsymbol));
-        ("lot", `String "1");
+        ("tradeSymbol", `String "NIFTY");
+        ("lot", `String (string_of_int lot));
         ("order_type", `String (string_of_int (order_type_to_int order.order_type)));
         ("product", `String (string_of_int (product_type_to_int order.product)));
-        ("qty", `String (string_of_int order.quantity));
+        ("qty", `String (string_of_int quantity));
         ("corderid", `String corderid);
         ("amo", `String "0");
         ("iprocli", `String "2");
