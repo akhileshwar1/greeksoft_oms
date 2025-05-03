@@ -6,6 +6,46 @@ open Entities.Config
 
 let auth_url = "http://greekapi.greeksoft.in:3001"
 let api_url = "http://restapi.greeksoft.in:3333"
+let iris_url = "wss://tester.greeksoft.in:8081"
+
+let connect_to_iris config = 
+  let gscid, gcid, session_id =
+    match config.broker_config with
+    | Greeksoft g -> g.gscid, g.gcid, g.session_id
+  in
+
+  (* Construct login message *)
+  let login_msg =
+    Printf.sprintf {|
+      {
+      "request": {
+      "data": {
+      "gscid": "%s",
+      "gcid": %d,
+      "sessionId": "%s",
+      "device_type": "0"
+      },
+      "response_format": "json",
+      "request_type": "subscribe",
+      "streaming_type": "login"
+      }
+      }
+      |}
+      
+      gscid gcid session_id
+  in
+
+  (* Raw message handler: parse and react to message *)
+  let raw_message_handler (msg : string) : unit Lwt.t =
+    (* Example: print to stdout. You can match on JSON here *)
+    Lwt_io.printf "Received from Iris: %s\n%!" msg
+  in
+
+  (* Call the general connector *)
+  Connector.connect_to_data_stream iris_url raw_message_handler login_msg
+  >>= fun () ->
+  Lwt.return config
+
 let find_string_opt key json =
     match Yojson.Basic.Util.member key json with
     | `Null -> None

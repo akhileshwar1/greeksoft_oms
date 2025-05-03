@@ -9,5 +9,6 @@ let login ~username ~password =
       >>= Greeksoft.Rest_client.get_login_info
       >>= Greeksoft.Rest_client.jlogin_new
       >>= Greeksoft.Contracts_store.fetch_and_store
+      >>= Greeksoft.Rest_client.connect_to_iris
   | _ ->
       failwith "Unsupported broker"
