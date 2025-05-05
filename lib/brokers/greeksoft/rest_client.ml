@@ -48,11 +48,12 @@ let connect_to_iris config =
   (* Raw message handler: parse and react to message *)
   let raw_message_handler (msg : string) : unit Lwt.t =
     (* Example: print to stdout. You can match on JSON here *)
-    Lwt_io.printf "Received from Iris: %s\n%!" msg
+    Lwt_io.printf "Received from Iris: %s\n%!" msg >>= fun () ->
+    Ws.Ws_server.broadcast_to_clients msg
   in
 
   (* Call the general connector *)
-  let _ = Connector.connect_to_data_stream iris_url raw_message_handler login_msg heartbeat_msg in
+  let _ = Ws.Connector.connect_to_data_stream iris_url raw_message_handler login_msg heartbeat_msg in
   Lwt.return config
 
 let find_string_opt key json =

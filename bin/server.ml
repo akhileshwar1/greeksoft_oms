@@ -65,8 +65,15 @@ let place_order_handler req =
     Lwt_io.printf "Request body done in None: \n" >>= fun () ->
     failwith "No active session. Please log in first."
 
+
 let () =
-  App.empty
-  |> App.post "/login" login_handler
-  |> App.post "/order/place" place_order_handler
-  |> App.run_command
+  let ws_server = Ws.Ws_server.start_server () in
+  let http_server =
+    Lwt.return
+    (App.empty
+    |> App.post "/login" login_handler
+    |> App.post "/order/place" place_order_handler
+    |> App.run_command)
+  in
+  Lwt_main.run (Lwt.join [ws_server; http_server])
+

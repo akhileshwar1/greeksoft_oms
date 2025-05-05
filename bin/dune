@@ -1,5 +1,5 @@
 (executable
  (public_name oms_server)
  (name server)
- (libraries om entities opium cohttp-lwt-unix yojson lwt cohttp-lwt))
+ (libraries om entities ws opium cohttp-lwt-unix yojson lwt cohttp-lwt ))
 

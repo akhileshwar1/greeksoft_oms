@@ -1,4 +1,4 @@
 (library
  (name greeksoft)
- (libraries entities lwt yojson cohttp-lwt-unix decompress.gz cstruct core_kernel websocket-lwt-unix
-            conduit-lwt-unix mirage-crypto-rng-lwt tls-lwt tls))
+ (libraries entities ws lwt yojson cohttp-lwt-unix decompress.gz cstruct core_kernel websocket-lwt-unix
+            conduit-lwt-unix))

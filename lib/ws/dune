@@ -1,0 +1,3 @@
+(library
+ (name ws)
+ (libraries lwt yojson cohttp-lwt-unix websocket-lwt-unix conduit-lwt-unix mirage-crypto-rng-lwt tls-lwt tls))
