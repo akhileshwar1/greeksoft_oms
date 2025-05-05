@@ -8,6 +8,26 @@ let auth_url = "http://greekapi.greeksoft.in:3001"
 let api_url = "http://restapi.greeksoft.in:3333"
 let iris_url = "ws://restapi.greeksoft.in:8085"
 
+let raw_message_handler (msg : string) : unit Lwt.t =
+  match Yojson.Safe.from_string msg with
+  | exception _ -> Lwt_io.printf "Invalid JSON from Iris: %s\n%!" msg
+  | json ->
+    let open Yojson.Safe.Util in
+    match json |> member "response" |> member "streaming_type" |> to_string_option with
+    | Some "OrderRejectionResponse" ->
+      let data = json |> member "response" |> member "data" in
+      begin match Entities.Order.of_yojson data with
+        | order ->
+          Ws.Ws_server.broadcast_to_clients (Yojson.Safe.to_string (Entities.Order.to_yojson order))
+        end
+
+    | Some "HeartBeat" ->
+      (* Ignore or optionally log *)
+      Lwt.return_unit
+    | _ ->
+      (* Other streaming types can be added here *)
+      Lwt.return_unit
+
 let connect_to_iris config = 
   let gscid, gcid, session_id =
     match config.broker_config with
@@ -43,13 +63,6 @@ let connect_to_iris config =
     ]
   ]
   |> Yojson.Basic.to_string
-  in
-
-  (* Raw message handler: parse and react to message *)
-  let raw_message_handler (msg : string) : unit Lwt.t =
-    (* Example: print to stdout. You can match on JSON here *)
-    Lwt_io.printf "Received from Iris: %s\n%!" msg >>= fun () ->
-    Ws.Ws_server.broadcast_to_clients msg
   in
 
   (* Call the general connector *)

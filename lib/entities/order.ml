@@ -122,3 +122,46 @@ let of_yojson (json : Yojson.Safe.t) : t =
     status = None;
   }
 
+
+let to_yojson (order : t) : Yojson.Safe.t =
+  let string_of_side = function
+    | Buy -> "Buy"
+    | Sell -> "Sell"
+  in
+
+  let string_of_order_type = function
+    | Limit -> "Limit"
+    | Market -> "Market"
+  in
+
+  let string_of_product = function
+    | MIS -> "MIS"
+    | CNC -> "CNC"
+    | NRML -> "NRML"
+  in
+
+  let string_of_validity = function
+    | DAY -> "DAY"
+    | IOC -> "IOC"
+  in
+
+  let base_fields = [
+    "tradingsymbol", `String order.tradingsymbol;
+    "exchange", `String order.exchange;
+    "quantity", `Int order.quantity;
+    "price", `Float order.price;
+    "trigger_price", `Float order.trigger_price;
+    "side", `String (string_of_side order.side);
+    "order_type", `String (string_of_order_type order.order_type);
+    "product", `String (string_of_product order.product);
+    "validity", `String (string_of_validity order.validity);
+  ] in
+
+  let optional_fields =
+    [ "strategy_name", Option.map (fun s -> `String s) order.strategy_name;
+      "broker_order_id", Option.map (fun s -> `String s) order.broker_order_id;
+      "status", Option.map (fun s -> `String (status_to_string s)) order.status ]
+    |> List.filter_map (fun (k, v_opt) -> Option.map (fun v -> k, v) v_opt)
+  in
+
+  `Assoc (base_fields @ optional_fields)
