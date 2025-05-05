@@ -42,9 +42,11 @@ let place_order_handler req =
   Lwt_io.printl "Received request for /order/place" >>= fun () ->
   json_of_request_body req
   >>= fun json ->
-  Lwt_io.printf "Request body: %s\n" (Yojson.Safe.to_string json) >>= fun () ->
+  Lwt_io.printf "Request body: %s\n" (Yojson.Safe.to_string json)
+  >>= fun () ->
   let order = Entities.Order.of_yojson json in
-  Lwt_io.printf "Request body done: \n" >>= fun () ->
+  Lwt_io.printf "Request body done: \n"
+  >>= fun () ->
   match Om.Session_store.get () with
   | Some config ->
     Lwt_io.printf "Request body done in Some: \n" >>= fun () ->

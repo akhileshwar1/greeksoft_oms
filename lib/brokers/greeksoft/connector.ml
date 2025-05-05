@@ -76,8 +76,16 @@ let system_resolver service uri =
       Lwt.return (`Unknown ("exception during resolution for " ^ host ^ ": " ^ error_msg))
     )
 
+let rec heartbeat_loop conn interval_seconds heartbeat_msg =
+  let open Lwt.Infix in
+  let frame = Websocket.Frame.create ~opcode:Text ~content:heartbeat_msg () in
+  Websocket_lwt_unix.write conn frame >>= fun () ->
+  Lwt_unix.sleep (float_of_int interval_seconds) >>= fun () ->
+  heartbeat_loop conn interval_seconds heartbeat_msg
+
 (* The main function to connect and handle messages *)
-let connect_to_data_stream (uri_string : string) (on_raw_message : raw_message_callback) (login_msg : string) : unit Lwt.t =
+let connect_to_data_stream (uri_string : string) (on_raw_message : raw_message_callback) (login_msg : string)
+  (heartbeat_msg : string): unit Lwt.t =
   let uri = Uri.of_string uri_string in
   (* Extract scheme for validation *)
   let scheme = Uri.scheme uri in
@@ -93,6 +101,7 @@ let connect_to_data_stream (uri_string : string) (on_raw_message : raw_message_c
   let rec read_loop (conn : conn) : unit Lwt.t =
     Lwt.catch
       (fun () ->
+        Lwt_io.printf " in read loop " >>= fun () ->
         (* Read one frame from the websocket - Disambiguated call *)
         Websocket_lwt_unix.read conn >>= fun frame ->
         (* Optional: Log received frame details for debugging *)
@@ -212,11 +221,12 @@ let connect_to_data_stream (uri_string : string) (on_raw_message : raw_message_c
 
 
       Lwt_io.printf "WebSocket connection established.\n" >>= fun () ->
-      let login_frame = Websocket.Frame.create ~content:login_msg () in
+      Lwt.async (fun () -> read_loop conn); (* Start reading ASAP *)
+      let login_frame = Websocket.Frame.create ~opcode:Text ~content:login_msg () in
       Websocket_lwt_unix.write conn login_frame >>= fun () ->
-
-      (* Start the read loop after successful connection *)
-      read_loop conn
+      Lwt_io.printf " sent login frame %s \n " login_msg >>= fun () ->
+      Lwt.async (fun () -> heartbeat_loop conn 10 heartbeat_msg); (* 10 second interval *)
+      Lwt.return_unit
     )  (* This is the closing parenthesis of the try block function *)
     (fun exn ->
       (* Handle connection errors, including potential exceptions from resolution *)

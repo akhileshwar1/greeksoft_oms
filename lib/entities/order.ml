@@ -54,23 +54,71 @@ type t = {
 }
 
 
+
 let of_yojson (json : Yojson.Safe.t) : t =
+  Printf.printf "in yojson\n%!";
+
   let open Yojson.Safe.Util in
+  let safe f key =
+    try f (json |> member key)
+    with e ->
+      Printf.printf "Error extracting key '%s': %s\n%!" key (Printexc.to_string e);
+      raise e
+  in
+
+  let safe_match key f = 
+    try match f (json |> member key) with
+      | "Buy" -> Buy
+      | "Sell" -> Sell
+      | other -> Printf.printf "Unknown side value '%s', defaulting to Buy\n%!" other; Buy
+    with e ->
+      Printf.printf "Error parsing '%s': %s\n%!" key (Printexc.to_string e);
+      Buy
+  in
+
+  let safe_order_type key f = 
+    try match f (json |> member key) with
+      | "Limit" -> Limit
+      | "Market" -> Market
+      | other -> Printf.printf "Unknown order_type '%s', defaulting to Limit\n%!" other; Limit
+    with e ->
+      Printf.printf "Error parsing '%s': %s\n%!" key (Printexc.to_string e);
+      Limit
+  in
+
+  let safe_product key f = 
+    try match f (json |> member key) with
+      | "MIS" -> MIS
+      | "CNC" -> CNC
+      | "NRML" -> NRML
+      | other -> Printf.printf "Unknown product '%s', defaulting to MIS\n%!" other; MIS
+    with e ->
+      Printf.printf "Error parsing '%s': %s\n%!" key (Printexc.to_string e);
+      MIS
+  in
+
+  let safe_validity key f = 
+    try match f (json |> member key) with
+      | "DAY" -> DAY
+      | "IOC" -> IOC
+      | other -> Printf.printf "Unknown validity '%s', defaulting to DAY\n%!" other; DAY
+    with e ->
+      Printf.printf "Error parsing '%s': %s\n%!" key (Printexc.to_string e);
+      DAY
+  in
+
   {
-    tradingsymbol = json |> member "tradingsymbol" |> to_string;
-    exchange = json |> member "exchange" |> to_string;
-    quantity = json |> member "quantity" |> to_int;
-    price = json |> member "price" |> to_float;
-    trigger_price = json |> member "trigger_price" |> to_float;
-    side = (match json |> member "side" |> to_string with
-      | "Buy" -> Buy | "Sell" -> Sell | _ -> Buy);
-    order_type = (match json |> member "order_type" |> to_string with
-      | "Limit" -> Limit | "Market" -> Market | _ -> Limit);
-    product = (match json |> member "product" |> to_string with
-      | "MIS" -> MIS | "CNC" -> CNC | "NRML" -> NRML | _ -> MIS);
-    validity = (match json |> member "validity" |> to_string with
-      | "DAY" -> DAY | "IOC" -> IOC | _ -> DAY);
-    strategy_name = json |> member "strategy_name" |> to_option to_string;
-    broker_order_id = None; (* set later by OMS *)
+    tradingsymbol = safe to_string "tradingsymbol";
+    exchange = safe to_string "exchange";
+    quantity = safe to_int "quantity";
+    price = safe to_float "price";
+    trigger_price = safe to_float "trigger_price";
+    side = safe_match "side" to_string;
+    order_type = safe_order_type "order_type" to_string;
+    product = safe_product "product" to_string;
+    validity = safe_validity "validity" to_string;
+    strategy_name = (try json |> member "strategy_name" |> to_option to_string with _ -> None);
+    broker_order_id = None;
     status = None;
   }
+

@@ -6,33 +6,43 @@ open Entities.Config
 
 let auth_url = "http://greekapi.greeksoft.in:3001"
 let api_url = "http://restapi.greeksoft.in:3333"
-let iris_url = "wss://tester.greeksoft.in:8081"
+let iris_url = "ws://restapi.greeksoft.in:8085"
 
 let connect_to_iris config = 
   let gscid, gcid, session_id =
     match config.broker_config with
     | Greeksoft g -> g.gscid, g.gcid, g.session_id
   in
-
+  Printf.printf " gcid is %d\n %!" gcid;
   (* Construct login message *)
-  let login_msg =
-    Printf.sprintf {|
-      {
-      "request": {
-      "data": {
-      "gscid": "%s",
-      "gcid": %d,
-      "sessionId": "%s",
-      "device_type": "0"
-      },
-      "response_format": "json",
-      "request_type": "subscribe",
-      "streaming_type": "login"
-      }
-      }
-      |}
-      
-      gscid gcid session_id
+  let login_json = `Assoc [
+    "request", `Assoc [
+      "data", `Assoc [
+        "gscid", `String gscid;
+        "gcid", `String (string_of_int gcid);
+        "sessionId", `String session_id;
+        "device_type", `String "0"
+      ];
+      "response_format", `String "json";
+      "request_type", `String "subscribe";
+      "streaming_type", `String "login"
+    ]
+  ] in
+  let login_msg= Yojson.Basic.to_string login_json in
+
+  let heartbeat_msg =
+  `Assoc [
+    "request", `Assoc [
+      "data", `Assoc [
+        "gcid", `String (string_of_int gcid);
+        "sessionId", `String session_id
+      ];
+      "response_format", `String "json";
+      "request_type", `String "subscribe";
+      "streaming_type", `String "HeartBeat"
+    ]
+  ]
+  |> Yojson.Basic.to_string
   in
 
   (* Raw message handler: parse and react to message *)
@@ -42,8 +52,7 @@ let connect_to_iris config =
   in
 
   (* Call the general connector *)
-  Connector.connect_to_data_stream iris_url raw_message_handler login_msg
-  >>= fun () ->
+  let _ = Connector.connect_to_data_stream iris_url raw_message_handler login_msg heartbeat_msg in
   Lwt.return config
 
 let find_string_opt key json =
@@ -218,7 +227,7 @@ let jlogin_new config =
     json 
     |> Yojson.Basic.Util.member "response" 
     |> Yojson.Basic.Util.member "sessionId"
-    |> Yojson.Basic.to_string in
+    |> Yojson.Basic.Util.to_string in
   Lwt_io.printf "session id is : %s\n" session_id 
   >>= fun () ->
   Lwt.return (with_session_id config ~session_id)
