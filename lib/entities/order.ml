@@ -165,3 +165,36 @@ let to_yojson (order : t) : Yojson.Safe.t =
   in
 
   `Assoc (base_fields @ optional_fields)
+
+
+let ws_of_yojson (data: Yojson.Safe.t) : t =
+  Printf.printf "in ws_of_yojson\n%!";
+
+  let open Yojson.Safe.Util in
+
+  let safe f key =
+    try f (data |> member key)
+    with e ->
+      Printf.printf "Error extracting key '%s': %s\n%!" key (Printexc.to_string e);
+      raise e
+  in
+
+  let safe_opt f key =
+    try Some (f (data |> member key))
+    with _ -> None
+  in
+
+  {
+    tradingsymbol = safe to_string "symbol";
+    exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+    quantity = 0;     (* Not present in JSON directly; hardcoded or extracted from reason if needed *)
+    price = 0.0;       (* Same as above — parse from `reason` if required *)
+    trigger_price = 0.0;
+    side = Sell;       (* Also parsed from reason manually for now *)
+    order_type = Limit;
+    product = MIS;
+    validity = DAY;
+    strategy_name = safe_opt to_string "strategyName";
+    broker_order_id = safe_opt to_string "gorderid";
+    status = Some Rejected;
+  }

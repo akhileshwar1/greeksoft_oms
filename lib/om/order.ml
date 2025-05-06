@@ -64,6 +64,8 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("isSqOffOrder", `String "false");
         ("offline", `String "0");
         ("is_restapi", `String "1");
+        ("algoId", `String "");
+        ("AccountNumber", `String "");
         ("strategyName", `String (match order.strategy_name with Some s -> s | None -> ""))
       ]
 
@@ -78,6 +80,7 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   | Greeksoft _ ->
     Printf.printf "in match greeksoft%!";
     let json = to_json config order in
+    Printf.printf " Order is: %s\n%!" (Yojson.Basic.pretty_to_string json);
     Greeksoft.Rest_client.place_order ~headers ~body:json
     >>= fun body_str ->
     let json = Yojson.Basic.from_string body_str in

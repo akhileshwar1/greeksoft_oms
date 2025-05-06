@@ -12,11 +12,14 @@ let raw_message_handler (msg : string) : unit Lwt.t =
   match Yojson.Safe.from_string msg with
   | exception _ -> Lwt_io.printf "Invalid JSON from Iris: %s\n%!" msg
   | json ->
+    Printf.printf "JSON from Iris: %s\n%!" (Yojson.Safe.to_string json);
     let open Yojson.Safe.Util in
     match json |> member "response" |> member "streaming_type" |> to_string_option with
-    | Some "OrderRejectionResponse" ->
+    | Some "OrderRejectionResponse"
+    | Some "RmsRejectionResponse" ->
       let data = json |> member "response" |> member "data" in
-      begin match Entities.Order.of_yojson data with
+      Printf.printf " data is %s\n%!" (Yojson.Safe.pretty_to_string data);
+      begin match Entities.Order.ws_of_yojson data with
         | order ->
           Ws.Ws_server.broadcast_to_clients (Yojson.Safe.to_string (Entities.Order.to_yojson order))
         end
