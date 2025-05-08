@@ -42,6 +42,7 @@ type t = {
   tradingsymbol : string;
   exchange : string;
   quantity : int;
+  lot : int;
   price : float;
   trigger_price : float;
   side : side;
@@ -111,6 +112,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
     tradingsymbol = safe to_string "tradingsymbol";
     exchange = safe to_string "exchange";
     quantity = safe to_int "quantity";
+    lot = safe to_int "quantity" / 75;
     price = safe to_float "price";
     trigger_price = safe to_float "trigger_price";
     side = safe_match "side" to_string;
@@ -149,6 +151,7 @@ let to_yojson (order : t) : Yojson.Safe.t =
     "tradingsymbol", `String order.tradingsymbol;
     "exchange", `String order.exchange;
     "quantity", `Int order.quantity;
+    "lot", `Int order.lot;
     "price", `Float order.price;
     "trigger_price", `Float order.trigger_price;
     "side", `String (string_of_side order.side);
@@ -187,7 +190,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   {
     tradingsymbol = safe to_string "symbol";
     exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-    quantity = 0;     (* Not present in JSON directly; hardcoded or extracted from reason if needed *)
+    quantity = safe to_int "qty";
+    lot = safe to_int "qty" / 75;
     price = 0.0;       (* Same as above — parse from `reason` if required *)
     trigger_price = 0.0;
     side = Sell;       (* Also parsed from reason manually for now *)
