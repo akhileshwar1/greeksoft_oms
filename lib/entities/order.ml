@@ -190,8 +190,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   {
     tradingsymbol = safe to_string "symbol";
     exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-    quantity = safe to_int "qty";
-    lot = safe to_int "qty" / 75;
+    quantity = int_of_string (safe to_string "qty");
+    lot = int_of_string (safe to_string "qty") / 75;
     price = 0.0;       (* Same as above — parse from `reason` if required *)
     trigger_price = 0.0;
     side = Sell;       (* Also parsed from reason manually for now *)
