@@ -7,7 +7,7 @@ open Entities.Config
 let auth_url = "http://greekapi.greeksoft.in:3001"
 (* let api_url = "http://restapi.greeksoft.in:3333" *)
 let api_url = "http://greekapi.dhanservices.co:3333"
-(* let iris_url = "ws://greekapi.greeksoft.in:8085" *)
+(* let iris_url = "ws://restapi.greeksoft.in:8085" *)
 let iris_url = "http://greekapi.dhanservices.co:8085"
 
 
