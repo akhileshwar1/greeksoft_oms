@@ -22,6 +22,12 @@ type t = {
   broker_config : broker_config;
 }
 
+(* loads env var from the environment the process is running under *)
+let get_env_or_default var_name default =
+  match Sys.getenv_opt var_name with
+  | Some value -> value
+  | None -> default
+
 let empty = {
   broker = "greeksoft";
   session_token = "";
@@ -30,10 +36,12 @@ let empty = {
     iris_ip = "";
     iris_port = 0;
     heartbeat_interval = -1;
+    gscid = get_env_or_default "GSCID" "DHAN";
+    password = get_env_or_default "PWD" "d#1111111111";
     (* gscid = "DHAN"; *)
     (* password = "d#1111111111"; *)
-    gscid = "DHAN2";
-    password = "a#1111111111";
+    (* gscid = "DHAN2"; *)
+    (* password = "a#1111111111"; *)
     (* gscid = "31500012C"; *)
     (* password = "z@1111111111"; *)
     app_id = "";
