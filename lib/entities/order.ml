@@ -1,5 +1,5 @@
 (* Our order entity *)
-
+(* NOTE: the transformation functions in here are greeksoft specific, needs to be generalized for all brokers *)
 type side =
   | Buy
   | Sell
@@ -58,7 +58,7 @@ type t = {
 }
 
 
-
+(* for incoming order requests from strategy *)
 let of_yojson (json : Yojson.Safe.t) : t =
   Printf.printf "in yojson\n%!";
 
@@ -130,7 +130,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
     status = Some Pending;
   }
 
-
+(* currently in use for sending order update to strategy *)
 let to_yojson (order : t) : Yojson.Safe.t =
   let string_of_side = function
     | Buy -> "Buy"
@@ -157,8 +157,10 @@ let to_yojson (order : t) : Yojson.Safe.t =
     "tradingsymbol", `String order.tradingsymbol;
     "exchange", `String order.exchange;
     "quantity", `Int order.quantity;
+    "filled_quantity", `Int order.filled_quantity;
     "lot", `Int order.lot;
     "price", `Float order.price;
+    "filled_price", `Float order.filled_price;
     "trigger_price", `Float order.trigger_price;
     "side", `String (string_of_side order.side);
     "order_type", `String (string_of_order_type order.order_type);
@@ -176,6 +178,11 @@ let to_yojson (order : t) : Yojson.Safe.t =
 
   `Assoc (base_fields @ optional_fields)
 
+let int_to_side side = 
+  match side with
+  | 1 -> Buy 
+  | 2 -> Sell
+  | _ -> Sell
 
 let ws_of_yojson (data: Yojson.Safe.t) : t =
   Printf.printf "in ws_of_yojson\n%!";
@@ -205,7 +212,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       price = float_of_string (safe to_string "price");
       lot = int_of_string (safe to_string "qty") / 75;
       trigger_price = 0.0;
-      side = Sell;       (* Also parsed from reason manually for now *)
+      side = int_to_side (int_of_string (safe to_string "side"));
       order_type = Limit;
       product = MIS;
       validity = DAY;
@@ -213,6 +220,25 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       broker_order_id = safe_opt to_string "gorderid";
       order_id = int_of_string (safe to_string "gorderid");
       status = Some Completed;
+    }
+  | "Pending" ->(*big assumption that order gets executed directly*)
+    {
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+      quantity = int_of_string (safe to_string "qty");
+      filled_quantity = int_of_string (safe to_string "qty") - int_of_string (safe to_string "pending_qty");
+      filled_price = float_of_string (safe to_string "price"); (*since there is no fill price in pending order type*)
+      price = float_of_string (safe to_string "price");
+      lot = int_of_string (safe to_string "qty") / 75;
+      trigger_price = 0.0;
+      side = int_to_side (int_of_string (safe to_string "side"));
+      order_type = Limit;
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe_opt to_string "gorderid";
+      order_id = int_of_string (safe to_string "gorderid");
+      status = Some Pending;
     }
   | _ -> 
     {
@@ -222,7 +248,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       lot = -1;
       price = 0.0;       (* Same as above — parse from `reason` if required *)
       trigger_price = 0.0;
-      side = Sell;       (* Also parsed from reason manually for now *)
+      side = int_to_side (int_of_string (safe to_string "side"));
       order_type = Limit;
       product = MIS;
       validity = DAY;

@@ -19,7 +19,8 @@ let raw_message_handler (msg : string) : unit Lwt.t =
     let open Yojson.Safe.Util in
     match json |> member "response" |> member "streaming_type" |> to_string_option with
     | Some "OrderRejectionResponse"
-    | Some "RmsRejectionResponse" ->
+    | Some "RmsRejectionResponse"
+    | Some "TradeResponse" ->
       let data = json |> member "response" |> member "data" in
       Printf.printf " data is %s\n%!" (Yojson.Safe.pretty_to_string data);
       begin match Entities.Order.ws_of_yojson data with

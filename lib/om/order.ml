@@ -1,4 +1,5 @@
 (* om order management *)
+(* Acts as a transformer between strategy layer and the brokers *)
 open Entities.Order
 open Lwt.Infix
 open Yojson.Basic.Util
