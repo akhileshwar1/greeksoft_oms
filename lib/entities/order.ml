@@ -52,6 +52,9 @@ type t = {
   strategy_name : string option;
   broker_order_id : string option;
   status : status_type option;
+  filled_quantity : int;
+  filled_price : float;
+  order_id : int;
 }
 
 
@@ -112,6 +115,9 @@ let of_yojson (json : Yojson.Safe.t) : t =
     tradingsymbol = safe to_string "tradingsymbol";
     exchange = safe to_string "exchange";
     quantity = safe to_int "quantity";
+    filled_quantity = safe to_int "quantity";
+    filled_price = safe to_float "price";
+    order_id = -1;
     lot = safe to_int "quantity" / 75;
     price = safe to_float "price";
     trigger_price = safe to_float "trigger_price";
@@ -121,7 +127,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
     validity = safe_validity "validity" to_string;
     strategy_name = (try json |> member "strategy_name" |> to_option to_string with _ -> None);
     broker_order_id = None;
-    status = None;
+    status = Some Pending;
   }
 
 
@@ -158,6 +164,7 @@ let to_yojson (order : t) : Yojson.Safe.t =
     "order_type", `String (string_of_order_type order.order_type);
     "product", `String (string_of_product order.product);
     "validity", `String (string_of_validity order.validity);
+    "order_id", `Int order.order_id; 
   ] in
 
   let optional_fields =
@@ -187,18 +194,42 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
     with _ -> None
   in
 
-  {
-    tradingsymbol = safe to_string "symbol";
-    exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-    quantity = int_of_string (safe to_string "qty");
-    lot = int_of_string (safe to_string "qty") / 75;
-    price = 0.0;       (* Same as above — parse from `reason` if required *)
-    trigger_price = 0.0;
-    side = Sell;       (* Also parsed from reason manually for now *)
-    order_type = Limit;
-    product = MIS;
-    validity = DAY;
-    strategy_name = safe_opt to_string "strategyName";
-    broker_order_id = safe_opt to_string "gorderid";
-    status = Some Rejected;
-  }
+  match safe to_string "order_status" with
+  | "Executed" ->(*big assumption that order gets executed directly*)
+    {
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+      quantity = int_of_string (safe to_string "qty");
+      filled_quantity = int_of_string (safe to_string "traded_qty");
+      filled_price = float_of_string (safe to_string "traded_price");
+      price = float_of_string (safe to_string "price");
+      lot = int_of_string (safe to_string "qty") / 75;
+      trigger_price = 0.0;
+      side = Sell;       (* Also parsed from reason manually for now *)
+      order_type = Limit;
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe_opt to_string "gorderid";
+      order_id = int_of_string (safe to_string "gorderid");
+      status = Some Completed;
+    }
+  | _ -> 
+    {
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+      quantity = -1;
+      lot = -1;
+      price = 0.0;       (* Same as above — parse from `reason` if required *)
+      trigger_price = 0.0;
+      side = Sell;       (* Also parsed from reason manually for now *)
+      order_type = Limit;
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe_opt to_string "gorderid";
+      status = Some Rejected;
+      filled_quantity = -1;
+      filled_price = 0.0;
+      order_id = int_of_string (safe to_string "gorderid");
+    }

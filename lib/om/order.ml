@@ -38,7 +38,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("trigger_price", `String (string_of_float order.trigger_price));
         ("gtoken", `String gtoken_str);
         ("side", `String (string_of_int (side_to_int order.side)));
-        ("gcid", `Int g.gcid);
+        ("gcid", `String (string_of_int g.gcid));
         ("validity", `String (string_of_int (validity_type_to_int order.validity)));
         ("price", `String (string_of_float order.price));
         ("exchange", `String order.exchange);
