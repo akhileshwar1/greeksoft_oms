@@ -57,6 +57,16 @@ type t = {
   order_id : int;
 }
 
+(* to fix the errors resulting from decimal json values like 100.0 being taken as int instead of float *)
+let safe_to_float json key =
+  let open Yojson.Safe.Util in
+  match member key json with
+  | `Float f -> f
+  | `Int i -> float_of_int i
+  | `String s -> float_of_string s
+  | v ->
+    Printf.printf "Unexpected type for key '%s': %s\n%!" key (to_string v);
+    failwith ("Expected float/int/string for key: " ^ key)
 
 (* for incoming order requests from strategy *)
 let of_yojson (json : Yojson.Safe.t) : t =
@@ -116,11 +126,11 @@ let of_yojson (json : Yojson.Safe.t) : t =
     exchange = safe to_string "exchange";
     quantity = safe to_int "quantity";
     filled_quantity = safe to_int "quantity";
-    filled_price = safe to_float "price";
+    filled_price = safe_to_float json "price";
     order_id = -1;
     lot = safe to_int "quantity" / 75;
-    price = safe to_float "price";
-    trigger_price = safe to_float "trigger_price";
+    price = safe_to_float json "price";
+    trigger_price = safe_to_float json "trigger_price";
     side = safe_match "side" to_string;
     order_type = safe_order_type "order_type" to_string;
     product = safe_product "product" to_string;
@@ -184,6 +194,12 @@ let int_to_side side =
   | 2 -> Sell
   | _ -> Sell
 
+let int_to_order_type order_type =
+  match order_type with
+  | 1 -> Limit
+  | 2 -> Market
+  | _ -> Limit
+
 let ws_of_yojson (data: Yojson.Safe.t) : t =
   Printf.printf "in ws_of_yojson\n%!";
 
@@ -202,7 +218,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   in
 
   match safe to_string "order_status" with
-  | "Executed" ->(*big assumption that order gets executed directly*)
+  | "Executed" ->
     {
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
@@ -213,7 +229,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       lot = int_of_string (safe to_string "qty") / 75;
       trigger_price = 0.0;
       side = int_to_side (int_of_string (safe to_string "side"));
-      order_type = Limit;
+      order_type = int_to_order_type (int_of_string (safe to_string "order_type")) ;
       product = MIS;
       validity = DAY;
       strategy_name = safe_opt to_string "strategyName";
@@ -221,13 +237,32 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       order_id = int_of_string (safe to_string "gorderid");
       status = Some Completed;
     }
-  | "Pending" ->(*big assumption that order gets executed directly*)
+  | "Partially Executed" ->
+    {
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+      quantity = int_of_string (safe to_string "qty");
+      filled_quantity = int_of_string (safe to_string "traded_qty");
+      filled_price = float_of_string (safe to_string "traded_price");
+      price = float_of_string (safe to_string "price");
+      lot = int_of_string (safe to_string "qty") / 75;
+      trigger_price = 0.0;
+      side = int_to_side (int_of_string (safe to_string "side"));
+      order_type = int_to_order_type (int_of_string (safe to_string "order_type")) ;
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe_opt to_string "gorderid";
+      order_id = int_of_string (safe to_string "gorderid");
+      status = Some Pending;
+    }
+  | "Pending" ->
     {
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = int_of_string (safe to_string "qty");
       filled_quantity = int_of_string (safe to_string "qty") - int_of_string (safe to_string "pending_qty");
-      filled_price = float_of_string (safe to_string "price"); (*since there is no fill price in pending order type*)
+      filled_price = 0.0; (*since there is no fill price in pending order type*)
       price = float_of_string (safe to_string "price");
       lot = int_of_string (safe to_string "qty") / 75;
       trigger_price = 0.0;

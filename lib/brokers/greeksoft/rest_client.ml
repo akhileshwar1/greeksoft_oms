@@ -5,9 +5,9 @@ open Cohttp_lwt_unix
 open Entities.Config
 
 let auth_url = "http://greekapi.greeksoft.in:3001"
-let api_url = "http://restapi.greeksoft.in:3333"
+let api_url = get_env_or_default "API_URL" "http://restapi.greeksoft.in:3333"
 (* let api_url = "http://greekapi.dhanservices.co:3333" *)
-let iris_url = "ws://restapi.greeksoft.in:8081"
+let iris_url = get_env_or_default "IRIS_URL" "ws://restapi.greeksoft.in:8081"
 (* let iris_url = "ws://greekapi.dhanservices.co:3031" *)
 
 
@@ -15,7 +15,7 @@ let raw_message_handler (msg : string) : unit Lwt.t =
   match Yojson.Safe.from_string msg with
   | exception _ -> Lwt_io.printf "Invalid JSON from Iris: %s\n%!" msg
   | json ->
-    Printf.printf "JSON from Iris: %s\n%!" (Yojson.Safe.to_string json);
+    (* Printf.printf "JSON from Iris: %s\n%!" (Yojson.Safe.to_string json); *)
     let open Yojson.Safe.Util in
     match json |> member "response" |> member "streaming_type" |> to_string_option with
     | Some "OrderRejectionResponse"

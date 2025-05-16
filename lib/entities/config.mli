@@ -32,3 +32,6 @@ val with_session_id:
 
 val with_gcid :
   t -> gcid:int -> t
+
+val get_env_or_default :
+  string -> string -> string
