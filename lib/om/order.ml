@@ -88,7 +88,7 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
     in
     begin match gorderid_opt with
       | Some gorderid ->
-        let updated_order = { order with broker_order_id = Some gorderid } in
+        let updated_order = { order with broker_order_id = gorderid } in
         Lwt.return updated_order
       | None ->
         failwith "gorderid missing in order response"
@@ -102,7 +102,7 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
   in
   match config.broker with
   | "greeksoft" ->
-    Greeksoft.Rest_client.cancel_order ~headers ~order_id:(Option.get order.broker_order_id)
+    Greeksoft.Rest_client.cancel_order ~headers ~order_id: order.broker_order_id
     >>= fun body_str ->
     let json = Yojson.Basic.from_string body_str in
     let open Yojson.Basic.Util in
@@ -123,7 +123,7 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
 let get_order_status (config : Entities.Config.t) (order : Entities.Order.t) : Entities.Order.t Lwt.t =
   match config.broker with
   | "greeksoft" ->
-    let gorderid_opt = order.broker_order_id in
+    let gorderid_opt = Some order.broker_order_id in
     let gscid =
       match config.broker_config with
       | Greeksoft g -> g.gscid

@@ -54,7 +54,7 @@ let place_order_handler req =
     >>= fun updated_order ->
     let response_json =
       `Assoc [
-        ("broker_order_id", `String (Option.value ~default:"" updated_order.broker_order_id));
+        ("broker_order_id", `String updated_order.broker_order_id);
         ("status", `String (updated_order.status
           |> Option.map Entities.Order.status_to_string
           |> Option.value ~default:"Unknown"))

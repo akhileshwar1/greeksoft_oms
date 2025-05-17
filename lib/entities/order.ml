@@ -50,11 +50,11 @@ type t = {
   product : product_type;
   validity : validity_type;
   strategy_name : string option;
-  broker_order_id : string option;
+  broker_order_id : string;
   status : status_type option;
   filled_quantity : int;
   filled_price : float;
-  order_id : int;
+  order_id : string;
 }
 
 (* to fix the errors resulting from decimal json values like 100.0 being taken as int instead of float *)
@@ -127,7 +127,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
     quantity = safe to_int "quantity";
     filled_quantity = safe to_int "quantity";
     filled_price = safe_to_float json "price";
-    order_id = -1;
+    order_id = safe to_string "order_id";
     lot = safe to_int "quantity" / 75;
     price = safe_to_float json "price";
     trigger_price = safe_to_float json "trigger_price";
@@ -136,7 +136,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
     product = safe_product "product" to_string;
     validity = safe_validity "validity" to_string;
     strategy_name = (try json |> member "strategy_name" |> to_option to_string with _ -> None);
-    broker_order_id = None;
+    broker_order_id = safe to_string "broker_order_id";
     status = Some Pending;
   }
 
@@ -176,12 +176,12 @@ let to_yojson (order : t) : Yojson.Safe.t =
     "order_type", `String (string_of_order_type order.order_type);
     "product", `String (string_of_product order.product);
     "validity", `String (string_of_validity order.validity);
-    "order_id", `Int order.order_id; 
+    "order_id", `String order.order_id; 
+    "broker_order_id", `String order.broker_order_id;
   ] in
 
   let optional_fields =
     [ "strategy_name", Option.map (fun s -> `String s) order.strategy_name;
-      "broker_order_id", Option.map (fun s -> `String s) order.broker_order_id;
       "status", Option.map (fun s -> `String (status_to_string s)) order.status ]
     |> List.filter_map (fun (k, v_opt) -> Option.map (fun v -> k, v) v_opt)
   in
@@ -233,8 +233,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       product = MIS;
       validity = DAY;
       strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe_opt to_string "gorderid";
-      order_id = int_of_string (safe to_string "gorderid");
+      broker_order_id = safe to_string "gorderid";
+      order_id = ""; (*since the websocket update from broker won't have our order id *)
       status = Some Completed;
     }
   | "Partially Executed" ->
@@ -252,8 +252,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       product = MIS;
       validity = DAY;
       strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe_opt to_string "gorderid";
-      order_id = int_of_string (safe to_string "gorderid");
+      broker_order_id = safe to_string "gorderid";
+      order_id = "";
       status = Some Pending;
     }
   | "Pending" ->
@@ -271,8 +271,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       product = MIS;
       validity = DAY;
       strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe_opt to_string "gorderid";
-      order_id = int_of_string (safe to_string "gorderid");
+      broker_order_id = safe to_string "gorderid";
+      order_id = "";
       status = Some Pending;
     }
   | _ -> 
@@ -288,9 +288,9 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       product = MIS;
       validity = DAY;
       strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe_opt to_string "gorderid";
+      broker_order_id = safe to_string "gorderid";
       status = Some Rejected;
       filled_quantity = -1;
       filled_price = 0.0;
-      order_id = int_of_string (safe to_string "gorderid");
+      order_id = ""; 
     }
