@@ -53,14 +53,14 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("amo", `String "0");
         (* ("iprocli", `String "2"); *)
         ("iprocli", `String (Entities.Config.get_env_or_default "IPROCLI" "2")); (* for retailer id in live it is 0*)
-        ("settlor", `String "ECASL0000538");
+      ("settlor", `String "ORBIS0009680");
         ("gtdExpiry", `Int 0);
         ("is_post_closed", `String "0");
         ("is_preopen_order", `String "0");
         ("isSqOffOrder", `String "false");
         ("offline", `String "0");
         ("is_restapi", `String "1");
-        ("algoId", `String "");
+        ("algoId", `String ""); (*135803*)
         ("AccountNumber", `String "");
         ("strategyName", `String (match order.strategy_name with Some s -> s | None -> ""))
       ]

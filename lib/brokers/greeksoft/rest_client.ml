@@ -4,7 +4,8 @@ open Lwt.Infix
 open Cohttp_lwt_unix
 open Entities.Config
 
-let auth_url = "http://greekapi.greeksoft.in:3001"
+(* let auth_url = "http://greekapi.greeksoft.in:3001" *)
+let auth_url = "http://125.99.50.252:3001"
 let api_url = get_env_or_default "API_URL" "http://restapi.greeksoft.in:3333"
 (* let api_url = "http://greekapi.dhanservices.co:3333" *)
 let iris_url = get_env_or_default "IRIS_URL" "ws://restapi.greeksoft.in:8081"
