@@ -90,41 +90,76 @@ let decompress_gzip (compressed_str : string) : string =
   | Ok _metadata -> Buffer.contents output_buffer (* Decompression successful, return accumulated output *)
   | Error (`Msg msg) -> failwith ("Gzip decompression failed: " ^ msg)
 
+let contracts_backup_path = "contracts_backup.csv"
+
+let save_csv_to_file (csv_str : string) : unit Lwt.t =
+  Lwt_io.(with_file ~mode:Output contracts_backup_path (fun oc ->
+    write oc csv_str
+  ))
+
+let load_from_local_csv () : unit Lwt.t =
+  Lwt_io.(with_file ~mode:Input contracts_backup_path (fun ic ->
+    read ic
+  )) >>= fun csv_str ->
+  let lines = String.split_on_char '\n' csv_str in
+  let data_lines = List.tl lines in
+  Lwt_list.iter_s (fun line ->
+    match parse_csv_line line with
+    | data_key, contract_record ->
+      Hashtbl.replace contracts_by_data_symbol data_key contract_record;
+      Hashtbl.replace contracts_by_token contract_record.token contract_record;
+      Lwt.return_unit
+    | exception _ -> Lwt.return_unit
+  ) data_lines
+
 let fetch_and_store config =
   if !loaded then
     Lwt.return config
   else
-    let uri = Uri.of_string "http://restapi.greeksoft.in:3333/getAllContract" in
+    let uri = Uri.of_string (Rest_client.api_url ^ "/getAllContract") in
     let headers =
       Cohttp.Header.init ()
       |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
       |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
       |> fun h -> Cohttp.Header.add h "Accept-Encoding" "identity"
     in
-    Cohttp_lwt_unix.Client.get ~headers uri
-    >>= fun (_, body_stream) ->
-    Cohttp_lwt.Body.to_string body_stream
-    >>= fun compressed_str ->
-    let csv_str = decompress_gzip compressed_str in
-    (* Printf.printf "csv str is: %s\n" csv_str;  *)
-    let lines = String.split_on_char '\n' csv_str in
-    let data_lines = List.tl lines in
-    let len = List.length data_lines in
-    Printf.printf "Number of data lines: %d\n" len; 
-    Lwt_list.iter_s (fun line ->
-      match parse_csv_line line with
-      | data_key, contract_record ->
-        Hashtbl.replace contracts_by_data_symbol data_key contract_record;
-        Hashtbl.replace contracts_by_token contract_record.token contract_record;
-        Lwt.return_unit
-      | exception _ ->
-        Lwt.return_unit
-    ) data_lines
-    >>= fun () ->
-    Printf.printf "All lines processed.\n%!";
-    loaded := true;
-    Lwt.return config
-
+    Lwt.catch
+      (fun () ->
+        Cohttp_lwt_unix.Client.get ~headers uri
+        >>= fun (_, body_stream) ->
+        Cohttp_lwt.Body.to_string body_stream
+        >>= fun compressed_str ->
+        let csv_str = decompress_gzip compressed_str in
+        (* Printf.printf "csv str is: %s\n" csv_str;  *)
+        let lines = String.split_on_char '\n' csv_str in
+        let data_lines = List.tl lines in
+        Printf.printf "Number of data lines: %d\n" (List.length data_lines); 
+        Lwt_list.iter_s (fun line ->
+          match parse_csv_line line with
+          | data_key, contract_record ->
+            Hashtbl.replace contracts_by_data_symbol data_key contract_record;
+            Hashtbl.replace contracts_by_token contract_record.token contract_record;
+            Lwt.return_unit
+          | exception _ ->
+            Lwt.return_unit
+        ) data_lines
+        >>= fun () ->
+        Printf.printf "All lines processed. Saving to csv\n%!";
+        save_csv_to_file csv_str
+        >>= fun () ->
+        Printf.printf "Contracts loaded and saved locally.\n%!";
+        loaded := true;
+        Lwt.return config
+      )
+      (fun exn ->
+        Logs.err (fun m -> m "Fetch from Greeksoft failed: %s" (Printexc.to_string exn));
+        Printf.printf "Falling back to local CSV...\n%!";
+        load_from_local_csv ()
+        >>= fun () ->
+        Printf.printf "Loaded from local CSV...\n%!";
+        loaded := true;
+        Lwt.return config
+      )
 
 let get_token ~symbol =
   let result = Hashtbl.find_opt contracts_by_data_symbol symbol in

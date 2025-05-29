@@ -82,8 +82,9 @@ let handle_connection (client : Connected_client.t) =
 
 (* Function to start the WebSocket server *)
 let start_server () =
-  Lwt_io.printl "Starting WebSocket server on port 8081..." >>= fun () ->
-  let mode = `TCP (`Port 8081) in
+  let port = (int_of_string (Entities.Config.get_env_or_default "OUT_WS_PORT" "8081")) in
+  Lwt_io.printf "Starting WebSocket server on port %d..." port >>= fun () ->
+  let mode = `TCP (`Port port) in
 
   Lwt_io.printl "Initializing Conduit context..." >>= fun () ->
   Conduit_lwt_unix.init () >>= fun ctx ->

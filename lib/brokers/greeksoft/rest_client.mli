@@ -1,4 +1,7 @@
 (* src/rest_client.mli *)
+val auth_url : string
+val api_url : string
+val iris_url : string
 
 val login : username:string -> password:string -> Entities.Config.t Lwt.t
 val get_flag_values : Entities.Config.t -> Entities.Config.t Lwt.t
