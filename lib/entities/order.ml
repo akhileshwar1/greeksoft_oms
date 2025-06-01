@@ -39,6 +39,8 @@ let status_to_string = function
   | _ -> "Unknown"
 
 type t = {
+  placed_at : Ptime.t option;
+  executed_at : Ptime.t option;
   tradingsymbol : string;
   exchange : string;
   quantity : int;
@@ -67,6 +69,11 @@ let safe_to_float json key =
   | v ->
     Printf.printf "Unexpected type for key '%s': %s\n%!" key (to_string v);
     failwith ("Expected float/int/string for key: " ^ key)
+
+let ptime_of_string (s : string) : Ptime.t option =
+  match Ptime.of_rfc3339 s with
+  | Ok (t, _, _) -> Some t
+  | Error _ -> None 
 
 (* for incoming order requests from strategy *)
 let of_yojson (json : Yojson.Safe.t) : t =
@@ -122,6 +129,8 @@ let of_yojson (json : Yojson.Safe.t) : t =
   in
 
   {
+    placed_at = ptime_of_string (safe to_string "placed_at");
+    executed_at = ptime_of_string (safe to_string "executed_at");
     tradingsymbol = safe to_string "tradingsymbol";
     exchange = safe to_string "exchange";
     quantity = safe to_int "quantity";
@@ -164,6 +173,14 @@ let to_yojson (order : t) : Yojson.Safe.t =
   in
 
   let base_fields = [
+    ("placed_at", 
+      match order.placed_at with
+      | Some ts -> `String (Ptime.to_rfc3339 ts)
+      | None -> `Null);
+    ("executed_at", 
+      match order.executed_at with
+      | Some ts -> `String (Ptime.to_rfc3339 ts)
+      | None -> `Null);
     "tradingsymbol", `String order.tradingsymbol;
     "exchange", `String order.exchange;
     "quantity", `Int order.quantity;
@@ -200,6 +217,7 @@ let int_to_order_type order_type =
   | 2 -> Market
   | _ -> Limit
 
+(* to parse order update from broker *)
 let ws_of_yojson (data: Yojson.Safe.t) : t =
   Printf.printf "in ws_of_yojson\n%!";
 
@@ -220,6 +238,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   match safe to_string "order_status" with
   | "Executed" ->
     {
+      placed_at = None; (* since this is an order update *)
+      executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = int_of_string (safe to_string "qty");
@@ -239,6 +259,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
     }
   | "Partially Executed" ->
     {
+      placed_at = None;
+      executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = int_of_string (safe to_string "qty");
@@ -258,6 +280,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
     }
   | "Pending" ->
     {
+      placed_at = None;
+      executed_at = None;
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = int_of_string (safe to_string "qty");
@@ -277,6 +301,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
     }
   | _ -> 
     {
+      placed_at = None;
+      executed_at = None;
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = -1;
