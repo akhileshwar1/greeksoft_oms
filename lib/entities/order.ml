@@ -130,7 +130,7 @@ let of_yojson (json : Yojson.Safe.t) : t =
 
   {
     placed_at = ptime_of_string (safe to_string "placed_at");
-    executed_at = ptime_of_string (safe to_string "executed_at");
+    executed_at = None;
     tradingsymbol = safe to_string "tradingsymbol";
     exchange = safe to_string "exchange";
     quantity = safe to_int "quantity";
