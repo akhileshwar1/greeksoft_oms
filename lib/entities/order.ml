@@ -281,7 +281,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   | "Pending" ->
     {
       placed_at = None;
-      executed_at = None;
+      executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = int_of_string (safe to_string "qty");
@@ -302,7 +302,7 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   | _ -> 
     {
       placed_at = None;
-      executed_at = None;
+      executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
       quantity = -1;
