@@ -27,7 +27,8 @@ let login_handler req =
   let open Yojson.Safe.Util in
   let username = json |> member "username" |> to_string in
   let password = json |> member "password" |> to_string in
-  Om.Session.login ~username ~password
+  let broker = json |> member "broker" |> to_string in
+  Om.Session.login ~username ~password ~broker
   >>= fun config ->
   Om.Session_store.set config;
   let response_json =

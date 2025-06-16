@@ -4,6 +4,10 @@ open Entities.Order
 open Lwt.Infix
 open Yojson.Basic.Util
 
+let uuid = Uuidm.v4_gen (Random.State.make_self_init ())
+let generate_order_id () : string =
+  Uuidm.to_string (uuid ())
+
 (* Map to Greeksoft API codes *)
 let side_to_int = function Buy -> 1 | Sell -> 2
 let order_type_to_int = function Limit -> 1 | Market -> 2
@@ -64,6 +68,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("AccountNumber", `String "");
         ("strategyName", `String (match order.strategy_name with Some s -> s | None -> ""))
       ]
+  | _ -> `Assoc [] 
 
 (* OMS-wide place_order interface *)
 let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
@@ -72,10 +77,10 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
     |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
     |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
+  let json = to_json config order in
   match config.broker_config with
   | Greeksoft _ ->
     Printf.printf "in match greeksoft%!";
-    let json = to_json config order in
     Printf.printf " Order is: %s\n%!" (Yojson.Basic.pretty_to_string json);
     Greeksoft.Rest_client.place_order ~headers ~body:json
     >>= fun body_str ->
@@ -95,6 +100,9 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
       | None ->
         failwith "gorderid missing in order response"
       end
+  | Dummy _ ->
+    Lwt.return { order with broker_order_id = generate_order_id ()}
+    
 
 let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
   let headers =
@@ -129,6 +137,7 @@ let get_order_status (config : Entities.Config.t) (order : Entities.Order.t) : E
     let gscid =
       match config.broker_config with
       | Greeksoft g -> g.gscid
+      | _ -> failwith "unsupported broker"
     in
     let token = config.session_token in
 

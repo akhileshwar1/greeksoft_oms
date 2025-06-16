@@ -40,6 +40,7 @@ let connect_to_iris config =
   let gscid, gcid, session_id =
     match config.broker_config with
     | Greeksoft g -> g.gscid, g.gcid, g.session_id
+    | _ -> failwith "unsupported broker"
   in
   Printf.printf " gcid is %d\n %!" gcid;
   (* Construct login message *)
@@ -169,6 +170,7 @@ let get_login_info config =
   let gscid=
     match config.broker_config with
     | Greeksoft g -> g.gscid
+    | _ -> failwith "unsupported broker"
   in
   let body_json =
     `Assoc [
@@ -220,6 +222,7 @@ let jlogin_new config =
   let gscid, password=
     match config.broker_config with
     | Greeksoft g -> g.gscid, g.password
+    | _ -> failwith "unsupported broker"
   in
   let body_json =
     `Assoc [

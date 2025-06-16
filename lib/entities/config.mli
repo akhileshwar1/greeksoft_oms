@@ -9,8 +9,11 @@ type greeksoft_config = {
   session_id : string;
 }
 
+type dummy_config = unit
+
 type broker_config =
   | Greeksoft of greeksoft_config
+  | Dummy of dummy_config
 
 type t = {
   broker : string;
