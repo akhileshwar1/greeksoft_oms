@@ -1,3 +1,3 @@
 (library
  (name om)
- (libraries entities greeksoft yojson re uuidm))
+ (libraries entities greeksoft zerodha yojson re uuidm))

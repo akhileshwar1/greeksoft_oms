@@ -14,6 +14,11 @@ let order_type_to_int = function Limit -> 1 | Market -> 2
 let product_type_to_int = function CNC -> 0 | NRML -> 1 | MIS -> 2
 let validity_type_to_int = function DAY -> 0 | IOC -> 1
 
+(* Map to Zerodha API specs *)
+let side_to_z_string = function Buy -> "BUY" | Sell -> "SELL"
+let otype_to_z_string = function Limit -> "LIMIT" | Market -> "MARKET"
+let vtype_to_z_string = function DAY -> "DAY" | IOC -> "IOC"
+
 let normalize_data_symbol (data_symbol: string) : string =
   (* Strip exchange and year *)
   match String.split_on_char ':' data_symbol with
@@ -68,7 +73,40 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("AccountNumber", `String "");
         ("strategyName", `String (match order.strategy_name with Some s -> s | None -> ""))
       ]
+  | Zerodha _ ->
+    `Assoc [
+      ("tradingsymbol", `String order.tradingsymbol);
+      ("exchange", `String "NSE");
+      ("transaction_type", `String (side_to_z_string order.side));
+      ("order_type", `String (otype_to_z_string order.order_type));
+      ("quantity", `String (string_of_int order.quantity));
+      ("validity", `String (vtype_to_z_string order.validity));
+    ]
+
   | _ -> `Assoc [] 
+
+
+let place rest_call headers json order_tag order = 
+  Printf.printf "in match greeksoft%!";
+  Printf.printf " Order is: %s\n%!" (Yojson.Basic.pretty_to_string json);
+  rest_call ~headers ~body:json
+  >>= fun body_str ->
+  let json = Yojson.Basic.from_string body_str in
+  let open Yojson.Basic.Util in
+  let gorderid_opt =
+    json
+    |> member "response"
+    |> member "data"
+    |> member order_tag 
+    |> to_string_option
+  in
+  begin match gorderid_opt with
+    | Some gorderid ->
+      let updated_order = { order with broker_order_id = gorderid } in
+      Lwt.return updated_order
+    | None ->
+      failwith "gorderid missing in order response"
+    end
 
 (* OMS-wide place_order interface *)
 let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
@@ -80,31 +118,12 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
   let json = to_json config order in
   match config.broker_config with
   | Greeksoft _ ->
-    Printf.printf "in match greeksoft%!";
-    Printf.printf " Order is: %s\n%!" (Yojson.Basic.pretty_to_string json);
-    Greeksoft.Rest_client.place_order ~headers ~body:json
-    >>= fun body_str ->
-    let json = Yojson.Basic.from_string body_str in
-    let open Yojson.Basic.Util in
-    let gorderid_opt =
-      json
-      |> member "response"
-      |> member "data"
-      |> member "gorderid"
-      |> to_string_option
-    in
-    begin match gorderid_opt with
-      | Some gorderid ->
-        let updated_order = { order with broker_order_id = gorderid } in
-        Lwt.return updated_order
-      | None ->
-        failwith "gorderid missing in order response"
-      end
+    place Greeksoft.Rest_client.place_order headers json "gorderid" order 
+  | Zerodha _ ->
+    place Zerodha.Rest_client.place_order headers json "order_id" order 
   | Dummy _ ->
     Lwt.return { order with broker_order_id = generate_order_id ()}
-  | Zerodha _ ->
-    Lwt.return { order with broker_order_id = generate_order_id ()}
-    
+   
 
 let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
   let headers =
