@@ -20,5 +20,11 @@ let login ~username ~password ~broker=
         session_token = generate_session_token ();
         user_id = 0;
         broker_config = Dummy () }
+  | "zerodha" ->
+    Lwt.return
+      { broker = broker;
+        session_token = password; (* the login process for zerodha is in the data layer, manual stuff. *)
+        user_id = 0;
+        broker_config = Zerodha () }
   | _ ->
       failwith "Unsupported broker"

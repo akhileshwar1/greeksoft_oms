@@ -13,9 +13,12 @@ type greeksoft_config = {
 
 type dummy_config = unit
 
+type zerodha_config = unit
+
 type broker_config =
   | Greeksoft of greeksoft_config
   | Dummy of dummy_config
+  | Zerodha of zerodha_config
   (* More brokers can be added here *)
 
 type t = {
@@ -61,18 +64,19 @@ let with_iris config ~iris_ip ~iris_port ~heartbeat_interval =
   | Greeksoft g ->
       let g' = { g with iris_ip; iris_port; heartbeat_interval } in
       { config with broker_config = Greeksoft g' }
-  | Dummy _ -> config 
+  | _ -> config 
+
 
 let with_session_id config ~session_id=
   match config.broker_config with
   | Greeksoft g ->
       let g' = { g with session_id } in
       { config with broker_config = Greeksoft g' }
-  | Dummy _ -> config 
+  | _ -> config 
 
 let with_gcid config ~gcid =
   match config.broker_config with
   | Greeksoft g ->
       let g' = { g with gcid } in
     { config with broker_config = Greeksoft g' }
-  | Dummy _ -> config 
+  | _ -> config 

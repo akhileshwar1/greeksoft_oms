@@ -11,9 +11,12 @@ type greeksoft_config = {
 
 type dummy_config = unit
 
+type zerodha_config = unit
+
 type broker_config =
   | Greeksoft of greeksoft_config
   | Dummy of dummy_config
+  | Zerodha of zerodha_config
 
 type t = {
   broker : string;

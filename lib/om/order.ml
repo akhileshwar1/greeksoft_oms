@@ -102,6 +102,8 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
       end
   | Dummy _ ->
     Lwt.return { order with broker_order_id = generate_order_id ()}
+  | Zerodha _ ->
+    Lwt.return { order with broker_order_id = generate_order_id ()}
     
 
 let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
