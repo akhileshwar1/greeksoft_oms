@@ -11,7 +11,10 @@ type greeksoft_config = {
 
 type dummy_config = unit
 
-type zerodha_config = unit
+type zerodha_config = {
+  api_key : string;
+  access_token : string;
+}
 
 type broker_config =
   | Greeksoft of greeksoft_config

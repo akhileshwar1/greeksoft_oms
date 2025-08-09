@@ -21,10 +21,7 @@ let login ~username ~password ~broker=
         user_id = 0;
         broker_config = Dummy () }
   | "zerodha" ->
-    Lwt.return
-      { broker = broker;
-        session_token = password; (* the login process for zerodha is in the data layer, manual stuff. *)
-        user_id = 0;
-        broker_config = Zerodha () }
+    Zerodha.Rest_client.login ~username ~password 
+    >>= Zerodha.Rest_client.connect_to_ws
   | _ ->
       failwith "Unsupported broker"

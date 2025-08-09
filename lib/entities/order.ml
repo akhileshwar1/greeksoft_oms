@@ -282,3 +282,62 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       filled_quantity = -1;
       filled_price = 0.0;
     }
+
+(* to parse order update from zerodha broker *)
+let zerodha_ws_of_yojson (data: Yojson.Safe.t) : t =
+  Printf.printf "in ws_of_yojson\n%!";
+
+  let open Yojson.Safe.Util in
+
+  let safe f key =
+    try f (data |> member key)
+    with e ->
+      Printf.printf "Error extracting key '%s': %s\n%!" key (Printexc.to_string e);
+      raise e
+  in
+
+  let safe_opt f key =
+    try Some (f (data |> member key))
+    with _ -> None
+  in
+
+  let common_fields  =
+    {
+      placed_at = None;
+      status = Some Completed; (* placeholder to avoid compile time error *)
+      executed_at = Some (Ptime_clock.now ());
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now *)
+      quantity = int_of_string (safe to_string "quantity");
+      filled_quantity = int_of_string (safe to_string "filled_quantity");
+      filled_price = float_of_string (safe to_string "average_price");
+      price = float_of_string (safe to_string "price");
+      lot = int_of_string (safe to_string "qty") / 75;
+      trigger_price = 0.0;
+      side = int_to_side (int_of_string (safe to_string "side"));
+      order_type = int_to_order_type (int_of_string (safe to_string "order_type"));
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe to_string "gorderid";
+      order_id = ""; (* since the websocket update won't have our order id *)
+    }
+  in
+
+  match safe to_string "order_status" with
+  | "COMPLETE" ->
+    { common_fields  with status = Some Completed }
+  | "UPDATE" ->
+    { common_fields  with status = Some Pending }
+  | _ -> 
+    {
+      common_fields with
+      quantity = -1;
+      lot = -1;
+      price = 0.0;
+      side = Sell; (* side not available in Rms Rejected status *)
+      order_type = Limit;
+      status = Some Rejected;
+      filled_quantity = -1;
+      filled_price = 0.0;
+    }
