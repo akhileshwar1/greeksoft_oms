@@ -235,88 +235,50 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
     with _ -> None
   in
 
+  let common_fields  =
+    {
+      placed_at = None;
+      status = Some Completed; (* placeholder to avoid compile time error *)
+      executed_at = Some (Ptime_clock.now ());
+      tradingsymbol = safe to_string "symbol";
+      exchange = "NSE";  (* Assuming fixed for now *)
+      quantity = int_of_string (safe to_string "qty");
+      filled_quantity = int_of_string (safe to_string "traded_qty");
+      filled_price = float_of_string (safe to_string "traded_price");
+      price = float_of_string (safe to_string "price");
+      lot = int_of_string (safe to_string "qty") / 75;
+      trigger_price = 0.0;
+      side = int_to_side (int_of_string (safe to_string "side"));
+      order_type = int_to_order_type (int_of_string (safe to_string "order_type"));
+      product = MIS;
+      validity = DAY;
+      strategy_name = safe_opt to_string "strategyName";
+      broker_order_id = safe to_string "gorderid";
+      order_id = ""; (* since the websocket update won't have our order id *)
+    }
+  in
+
   match safe to_string "order_status" with
   | "Executed" ->
-    {
-      placed_at = None; (* since this is an order update *)
-      executed_at = Some (Ptime_clock.now ());
-      tradingsymbol = safe to_string "symbol";
-      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-      quantity = int_of_string (safe to_string "qty");
-      filled_quantity = int_of_string (safe to_string "traded_qty");
-      filled_price = float_of_string (safe to_string "traded_price");
-      price = float_of_string (safe to_string "price");
-      lot = int_of_string (safe to_string "qty") / 75;
-      trigger_price = 0.0;
-      side = int_to_side (int_of_string (safe to_string "side"));
-      order_type = int_to_order_type (int_of_string (safe to_string "order_type")) ;
-      product = MIS;
-      validity = DAY;
-      strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe to_string "gorderid";
-      order_id = ""; (*since the websocket update from broker won't have our order id *)
-      status = Some Completed;
-    }
+    { common_fields  with status = Some Completed }
   | "Partially Executed" ->
-    {
-      placed_at = None;
-      executed_at = Some (Ptime_clock.now ());
-      tradingsymbol = safe to_string "symbol";
-      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-      quantity = int_of_string (safe to_string "qty");
-      filled_quantity = int_of_string (safe to_string "traded_qty");
-      filled_price = float_of_string (safe to_string "traded_price");
-      price = float_of_string (safe to_string "price");
-      lot = int_of_string (safe to_string "qty") / 75;
-      trigger_price = 0.0;
-      side = int_to_side (int_of_string (safe to_string "side"));
-      order_type = int_to_order_type (int_of_string (safe to_string "order_type")) ;
-      product = MIS;
-      validity = DAY;
-      strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe to_string "gorderid";
-      order_id = "";
-      status = Some Pending;
-    }
+    { common_fields  with status = Some Pending }
   | "Pending" ->
     {
-      placed_at = None;
-      executed_at = Some (Ptime_clock.now ());
-      tradingsymbol = safe to_string "symbol";
-      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
-      quantity = int_of_string (safe to_string "qty");
+      common_fields with
       filled_quantity = int_of_string (safe to_string "qty") - int_of_string (safe to_string "pending_qty");
-      filled_price = 0.0; (*since there is no fill price in pending order type*)
-      price = float_of_string (safe to_string "price");
-      lot = int_of_string (safe to_string "qty") / 75;
-      trigger_price = 0.0;
-      side = int_to_side (int_of_string (safe to_string "side"));
-      order_type = int_to_order_type (int_of_string (safe to_string "order_type")) ;
-      product = MIS;
-      validity = DAY;
-      strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe to_string "gorderid";
-      order_id = "";
+      filled_price = 0.0; (* no fill price in pending orders *)
       status = Some Pending;
     }
   | _ -> 
     {
-      placed_at = None;
-      executed_at = Some (Ptime_clock.now ());
-      tradingsymbol = safe to_string "symbol";
-      exchange = "NSE";  (* Assuming fixed for now, or derive from instrument if needed *)
+      common_fields with
       quantity = -1;
       lot = -1;
-      price = 0.0;       (* Same as above — parse from `reason` if required *)
-      trigger_price = 0.0;
+      price = 0.0;
       side = Sell; (* side not available in Rms Rejected status *)
       order_type = Limit;
-      product = MIS;
-      validity = DAY;
-      strategy_name = safe_opt to_string "strategyName";
-      broker_order_id = safe to_string "gorderid";
       status = Some Rejected;
       filled_quantity = -1;
       filled_price = 0.0;
-      order_id = ""; 
     }
