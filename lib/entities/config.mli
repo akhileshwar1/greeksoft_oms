@@ -16,10 +16,16 @@ type zerodha_config = {
   access_token : string;
 }
 
+type binance_config = {
+  api_key : string;
+  secret_key : string;
+}
+
 type broker_config =
   | Greeksoft of greeksoft_config
   | Dummy of dummy_config
   | Zerodha of zerodha_config
+  | Binance of binance_config
 
 type t = {
   broker : string;

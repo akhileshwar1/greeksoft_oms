@@ -341,3 +341,82 @@ let zerodha_ws_of_yojson (data: Yojson.Safe.t) : t =
       filled_quantity = -1;
       filled_price = 0.0;
     }
+
+
+let binance_ws_of_yojson (data : Yojson.Safe.t) : t =
+  let open Yojson.Safe.Util in
+
+  (* helpers to safely extract strings/numbers *)
+  let safe_string key =
+    try (data |> member key |> to_string) with _ -> ""
+  in
+  let safe_float_of_string s =
+    try float_of_string s with _ -> 0.0
+  in
+  let safe_int_of_string s =
+    try int_of_float (float_of_string s) with _ -> 0
+  in
+
+  (* Binance executionReport fields (common): *)
+  let symbol = (try data |> member "s" |> to_string with _ -> safe_string "symbol") in
+  let side_s = try data |> member "S" |> to_string with _ -> safe_string "side" in
+  let side =
+    match String.uppercase_ascii side_s with
+    | "BUY" -> Buy
+    | "SELL" -> Sell
+    | _ -> Buy
+  in
+  let qty_s = (try data |> member "q" |> to_string with _ -> safe_string "q") in
+  let executed_qty_s = (try data |> member "z" |> to_string with _ -> safe_string "z") in
+  let price_s = (try data |> member "p" |> to_string with _ -> safe_string "p") in
+  let last_filled_price_s = (try data |> member "L" |> to_string with _ -> "") in
+  let status_s =
+    try data |> member "X" |> to_string
+    with _ -> (try data |> member "x" |> to_string with _ -> safe_string "X")
+  in
+
+  (* map Binance status -> our status_type *)
+  let status =
+    match String.uppercase_ascii status_s with
+    | "FILLED" -> Some Completed
+    | "PARTIALLY_FILLED" -> Some Pending
+    | "CANCELED" | "CANCELLED" -> Some Cancelled
+    | "REJECTED" -> Some Rejected
+    | "NEW" -> Some Pending
+    | _ -> Some Unknown
+  in
+
+  let qty = if qty_s = "" then 0 else safe_int_of_string qty_s in
+  let filled_qty = if executed_qty_s = "" then 0 else safe_int_of_string executed_qty_s in
+  let price =
+    if last_filled_price_s <> "" then safe_float_of_string last_filled_price_s
+    else if price_s <> "" then safe_float_of_string price_s
+    else 0.0
+  in
+
+  let broker_order_id =
+    try data |> member "i" |> to_string (* orderId *)
+    with _ -> safe_string "orderId"
+  in
+
+  (* create Entities.Order.t value *)
+  {
+    placed_at = None;
+    executed_at = Some (Ptime_clock.now ());
+    tradingsymbol = symbol;
+    exchange = "BINANCE";
+    quantity = qty;
+    lot = (if qty = 0 then 0 else qty); (* adapt lot computation later *)
+    price = price;
+    trigger_price = 0.0;
+    side = side;
+    order_type = Limit; (* Binance reports "o" for order type if you want to parse it *)
+    product = MIS;
+    validity = DAY;
+    strategy_name = None;
+    broker_order_id = broker_order_id;
+    status = status;
+    filled_quantity = filled_qty;
+    filled_price = price;
+    order_id = ""; (* not provided by strategy; use your own mapping if needed *)
+  }

@@ -26,6 +26,51 @@ let normalize_data_symbol (data_symbol: string) : string =
     raw 
   | _ -> data_symbol  
 
+(* optional: used for signature *)
+(* Using Digestif + Cstruct for HMAC-SHA256. Add (digestif cstruct) to your dune deps. *)
+module SHA = Digestif.SHA256
+
+let timestamp_ms () = 
+  Int64.to_string (Int64.of_float (Unix.gettimeofday () *. 1000.0))
+
+(* Add standard Binance params: symbol, side, type, price/quantity etc.
+   Return (params_list, pretty_json_for_logging) *)
+let build_binance_params_of_order (config : Entities.Config.t) (order : Entities.Order.t) =
+  match config.broker_config with
+  | Binance _ ->
+    let symbol = order.tradingsymbol  (* ensure correct symbol format e.g. BTCUSDT *) in
+    let side = match order.side with Buy -> "BUY" | Sell -> "SELL" in
+    let otype = match order.order_type with Limit -> "LIMIT" | Market -> "MARKET" in
+    let params =
+      [
+        ("symbol", symbol);
+        ("side", side);
+        ("type", otype);
+        ("timestamp", timestamp_ms ());
+      ]
+    in
+    let params =
+      (* include price/quantity where applicable *)
+      let params = 
+        if otype = "LIMIT" then
+          ("price", Printf.sprintf "%.8f" order.price) :: ("timeInForce","GTC") :: params
+        else params
+      in
+      (* quantity as string *)
+      ("quantity", string_of_int order.quantity) :: params
+    in
+    (* optional client id *)
+    let params = ("newClientOrderId", (match order.order_id with "" -> generate_order_id () | s -> s)) :: params in
+    let json_log = `Assoc [
+      ("symbol", `String symbol);
+      ("side", `String side);
+      ("type", `String otype);
+      ("price", `Float order.price);
+      ("quantity", `Int order.quantity)
+    ] in
+    (params, json_log)
+  | _ -> failwith "build_binance_params_of_order: not a Binance config"
+
 (* Create JSON for Greeksoft from Order.t and Config.t *)
 let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Basic.t =
   match config.broker_config with
@@ -82,7 +127,10 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
       ("quantity", `String (string_of_int order.quantity));
       ("validity", `String (vtype_to_z_string order.validity));
     ]
-
+  | Binance _ ->
+      (* Return a JSON form useful for logging/debugging. The actual HTTP will be form-encoded signed query. *)
+      let (_params, json_log) = build_binance_params_of_order config order in
+      json_log
   | _ -> `Assoc [] 
 
 
@@ -121,6 +169,25 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
     place Greeksoft.Rest_client.place_order headers json "gorderid" order 
   | Zerodha _ ->
     place Zerodha.Rest_client.place_order headers json "order_id" order 
+  | Binance _ ->
+    (* For Binance call binance rest_client directly. We expect Binanace.Rest_client.place_order
+       to implement signing and return the raw response string. *)
+    Binance.Rest_client.place_order ~headers ~body:json
+    >>= fun body_str ->
+    (* parse Binance response (flat JSON) and extract orderId or clientOrderId *)
+    let j = Yojson.Basic.from_string body_str in
+    let open Yojson.Basic.Util in
+    let order_id_opt =
+      (try Some (j |> member "orderId" |> to_string) with _ -> None)
+      |> (function None -> (try Some (j |> member "clientOrderId" |> to_string) with _ -> None) | s -> s)
+    in
+    begin match order_id_opt with
+      | Some oid ->
+          let updated_order = { order with broker_order_id = oid } in
+          Lwt.return updated_order
+      | None ->
+          Lwt.fail_with ("Binance.place_order: no orderId in response: " ^ body_str)
+    end
   | Dummy _ ->
     Lwt.return { order with broker_order_id = generate_order_id ()}
    
@@ -131,8 +198,8 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
   |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
   |> fun h -> Cohttp.Header.add h "Authorization" config.session_token
   in
-  match config.broker with
-  | "greeksoft" ->
+  match config.broker_config with
+  | Greeksoft _ ->
     Greeksoft.Rest_client.cancel_order ~headers ~order_id: order.broker_order_id
     >>= fun body_str ->
     let json = Yojson.Basic.from_string body_str in
@@ -147,6 +214,49 @@ let cancel_order (config : Entities.Config.t) (order : Entities.Order.t) =
         Lwt.return updated_order
       | _ ->
         failwith "Not cancelled!"
+      end
+  | Binance bcfg ->
+      (* For Binance we need symbol and either orderId or origClientOrderId.
+         We call the Binance client: cancel_order ~headers ~symbol ~order_id ~api_key ~secret_key *)
+      let api_key = bcfg.api_key in
+      let secret_key = bcfg.secret_key in
+      let symbol = order.tradingsymbol in
+      (* prefer broker_order_id (exchange orderId), else fallback to order.order_id (client id) *)
+      let maybe_order_id = 
+        if order.broker_order_id <> "" then Some order.broker_order_id
+        else if order.order_id <> "" then Some order.order_id
+        else None
+      in
+      begin match maybe_order_id with
+      | None -> Lwt.fail_with "cancel_order: no broker_order_id or client order_id available for Binance"
+      | Some oid ->
+          Binance.Rest_client.cancel_order
+            ~headers
+            ~symbol
+            ~order_id:oid
+            ~api_key
+            ~secret_key
+          >>= fun body_str ->
+          (* parse response and map to Entities.Order.t *)
+          let j =
+            try Yojson.Basic.from_string body_str
+            with _ -> `Assoc []
+          in
+          let open Yojson.Basic.Util in
+          (* Binance cancel response typically contains "status": "CANCELED" and fields like orderId, origClientOrderId *)
+          let status_opt =
+            try Some (j |> member "status" |> to_string) with _ -> None
+          in
+          begin match status_opt with
+          | Some s when String.uppercase_ascii s = "CANCELED" || String.uppercase_ascii s = "CANCELLED" ->
+              Lwt.return { order with status = Some Cancelled }
+          | Some _ ->
+              (* some other state returned — keep Unknown or set accordingly *)
+              Lwt.return { order with status = Some Unknown }
+          | None ->
+              (* No status field: if HTTP was 200 we treat as cancelled; else caller will inspect body_str *)
+              Lwt.return { order with status = Some Cancelled }
+          end
       end
   | _ ->
     failwith "Unsupported broker"

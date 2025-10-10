@@ -23,5 +23,8 @@ let login ~username ~password ~broker=
   | "zerodha" ->
     Zerodha.Rest_client.login ~username ~password 
     >>= Zerodha.Rest_client.connect_to_ws
+  | "binance" ->
+    Binance.Rest_client.login ~username ~password
+    >>= Binance.Rest_client.connect_to_ws
   | _ ->
       failwith "Unsupported broker"

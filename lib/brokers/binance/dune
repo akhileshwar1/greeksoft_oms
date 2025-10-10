@@ -1,0 +1,4 @@
+(library
+ (name binance)
+ (libraries entities ws lwt yojson cohttp-lwt-unix decompress.gz cstruct digestif core_kernel websocket-lwt-unix
+            conduit-lwt-unix))
