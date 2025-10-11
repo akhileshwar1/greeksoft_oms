@@ -66,6 +66,30 @@ let place_order_handler req =
     Lwt_io.printf "Request body done in None: \n" >>= fun () ->
     failwith "No active session. Please log in first."
 
+let cancel_order_handler req =
+  Lwt_io.printl "Received request for /order/cancel" >>= fun () ->
+  json_of_request_body req
+  >>= fun json ->
+  Lwt_io.printf "Cancel request body: %s\n" (Yojson.Safe.to_string json)
+  >>= fun () ->
+  let order = Entities.Order.of_yojson json in
+  match Om.Session_store.get () with
+  | Some config ->
+    Lwt_io.printf "Calling Om.Order.cancel_order\n%!" >>= fun () ->
+    Om.Order.cancel_order config order
+    >>= fun updated_order ->
+    let response_json =
+      `Assoc [
+        ("broker_order_id", `String updated_order.broker_order_id);
+        ("status", `String (updated_order.status
+          |> Option.map Entities.Order.status_to_string
+          |> Option.value ~default:"Unknown"))
+      ]
+    in
+    respond_json response_json
+  | None ->
+    Lwt_io.printf "No session active for cancel\n%!" >>= fun () ->
+    failwith "No active session. Please log in first."
 
 let () =
   let ws_server = Ws.Ws_server.start_server () in
@@ -74,7 +98,7 @@ let () =
     (App.empty
     |> App.post "/login" login_handler
     |> App.post "/order/place" place_order_handler
+    |> App.post "/order/cancel" cancel_order_handler
     |> App.run_command)
   in
   Lwt_main.run (Lwt.join [ws_server; http_server])
-
