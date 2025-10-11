@@ -198,7 +198,7 @@ let connect_to_ws config =
   | Error e ->
       Lwt_io.printf "[binance] failed to get listenKey: %s\n%!" e >>= fun () -> Lwt.return config
   | Ok listen_key ->
-      let connect_url = ws_base ^ listen_key in
+      let connect_url = ws_base ^ "/" ^ listen_key in
       let login_msg = `Assoc [] |> Yojson.Safe.to_string in
       let heartbeat_msg = `Assoc [] |> Yojson.Safe.to_string in
       let _ = Ws.Connector.connect_to_data_stream connect_url raw_message_handler login_msg heartbeat_msg in
