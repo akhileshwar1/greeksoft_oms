@@ -43,24 +43,24 @@ let build_binance_params_of_order (config : Entities.Config.t) (order : Entities
     let otype = match order.order_type with Limit -> "LIMIT" | Market -> "MARKET" in
     let params =
       [
-        ("symbol", symbol);
-        ("side", side);
-        ("type", otype);
-        ("timestamp", timestamp_ms ());
+        ("symbol", `String symbol);
+        ("side", `String side);
+        ("type", `String otype);
+        ("timestamp", `String (timestamp_ms ()));
       ]
     in
     let params =
       (* include price/quantity where applicable *)
       let params = 
         if otype = "LIMIT" then
-          ("price", Printf.sprintf "%.8f" order.price) :: ("timeInForce","GTC") :: params
+          ("price", `String (Printf.sprintf "%.8f" order.price)) :: ("timeInForce",`String "GTC") :: params
         else params
       in
       (* quantity as string *)
-      ("quantity", string_of_int order.quantity) :: params
+      ("quantity", `String (string_of_int order.quantity)) :: params
     in
     (* optional client id *)
-    let params = ("newClientOrderId", (match order.order_id with "" -> generate_order_id () | s -> s)) :: params in
+    let params = ("newClientOrderId", `String (match order.order_id with "" -> generate_order_id () | s -> s)) :: params in
     let json_log = `Assoc [
       ("symbol", `String symbol);
       ("side", `String side);
@@ -68,7 +68,7 @@ let build_binance_params_of_order (config : Entities.Config.t) (order : Entities
       ("price", `Float order.price);
       ("quantity", `Int order.quantity)
     ] in
-    (params, json_log)
+    (`Assoc params, json_log)
   | _ -> failwith "build_binance_params_of_order: not a Binance config"
 
 (* Create JSON for Greeksoft from Order.t and Config.t *)
@@ -129,8 +129,8 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
     ]
   | Binance _ ->
       (* Return a JSON form useful for logging/debugging. The actual HTTP will be form-encoded signed query. *)
-      let (_params, json_log) = build_binance_params_of_order config order in
-      json_log
+      let (params, _json_log) = build_binance_params_of_order config order in
+      params
   | _ -> `Assoc [] 
 
 

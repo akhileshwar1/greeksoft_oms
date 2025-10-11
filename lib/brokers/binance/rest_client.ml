@@ -50,10 +50,8 @@ let yojson_to_params (body : Yojson.Basic.t) : (string * string) list =
 
 (* place_order: signs and sends POST /api/v3/order?{qs}&signature=... *)
 let place_order ~headers ~body ~api_key ~secret_key : string Lwt.t =
+  Printf.printf " in binana place \n%!";
   let params = yojson_to_params body in
-  (* add timestamp *)
-  let ts = Int64.to_string (Int64.of_float (Unix.gettimeofday () *. 1000.0)) in
-  let params = ("timestamp", ts) :: params in
 
   (* build query string and sign *)
   let qs = build_query params in
@@ -70,6 +68,7 @@ let place_order ~headers ~body ~api_key ~secret_key : string Lwt.t =
   >>= fun (resp, body_stream) ->
   let code = resp |> Response.status |> Cohttp.Code.code_of_status in
   Cohttp_lwt.Body.to_string body_stream >>= fun body_str ->
+  Printf.printf "body str is %s \n%!" body_str;
   (* Optionally handle non-2xx here by failing Lwt *)
   if code >= 200 && code < 300 then
     Lwt.return body_str
