@@ -45,8 +45,14 @@ let place_order_handler req =
   >>= fun json ->
   Lwt_io.printf "Request body: %s\n" (Yojson.Safe.to_string json)
   >>= fun () ->
-  let order = Entities.Order.of_yojson json in
-  Lwt_io.printf "Request body done: \n"
+    let order =
+      try Entities.Order.of_yojson json
+         with ex ->
+           Lwt_io.eprintf "Entities.Order.of_yojson raised: %s\n%!" (Printexc.to_string ex)
+    |> Lwt.ignore_result;
+           raise ex
+  in
+       Lwt_io.printf "of_yojson returned successfully\n%!"
   >>= fun () ->
   match Om.Session_store.get () with
   | Some config ->
