@@ -169,11 +169,16 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
     place Greeksoft.Rest_client.place_order headers json "gorderid" order 
   | Zerodha _ ->
     place Zerodha.Rest_client.place_order headers json "order_id" order 
-  | Binance _ ->
+  | Binance bcfg ->
+      Printf.printf " in binance place order \n%!";
+      let api_key = bcfg.api_key in
+      let secret_key = bcfg.secret_key in
     (* For Binance call binance rest_client directly. We expect Binanace.Rest_client.place_order
        to implement signing and return the raw response string. *)
-    Binance.Rest_client.place_order ~headers ~body:json
+    Binance.Rest_client.place_order ~headers ~body:json ~api_key ~secret_key
     >>= fun body_str ->
+
+      Printf.printf " in binance place order returned \n%!";
     (* parse Binance response (flat JSON) and extract orderId or clientOrderId *)
     let j = Yojson.Basic.from_string body_str in
     let open Yojson.Basic.Util in

@@ -49,12 +49,7 @@ let yojson_to_params (body : Yojson.Basic.t) : (string * string) list =
   | _ -> []
 
 (* place_order: signs and sends POST /api/v3/order?{qs}&signature=... *)
-let place_order ~headers ~body : string Lwt.t =
-  (* credentials: for now read from env; better: pass config into this function *)
-  let api_key = match Sys.getenv_opt "BINANCE_API_KEY" with Some v -> v | None -> failwith "BINANCE_API_KEY not set" in
-  let secret_key = match Sys.getenv_opt "BINANCE_SECRET" with Some v -> v | None -> failwith "BINANCE_SECRET not set" in
-
-  (* build params from body JSON *)
+let place_order ~headers ~body ~api_key ~secret_key : string Lwt.t =
   let params = yojson_to_params body in
   (* add timestamp *)
   let ts = Int64.to_string (Int64.of_float (Unix.gettimeofday () *. 1000.0)) in
