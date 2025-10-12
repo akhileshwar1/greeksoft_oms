@@ -12,6 +12,7 @@ let get_position_by_token (config : Entities.Config.t) (token : int) : Entities.
     let gscid =
       match config.broker_config with
       | Greeksoft g -> g.gscid
+      | _ -> failwith "unsupported broker"
     in
     Greeksoft.Rest_client.get_strategy_positions ~headers ~gscid 
     >>= fun json_list ->

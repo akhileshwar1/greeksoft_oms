@@ -9,8 +9,23 @@ type greeksoft_config = {
   session_id : string;
 }
 
+type dummy_config = unit
+
+type zerodha_config = {
+  api_key : string;
+  access_token : string;
+}
+
+type binance_config = {
+  api_key : string;
+  secret_key : string;
+}
+
 type broker_config =
   | Greeksoft of greeksoft_config
+  | Dummy of dummy_config
+  | Zerodha of zerodha_config
+  | Binance of binance_config
 
 type t = {
   broker : string;
@@ -32,3 +47,6 @@ val with_session_id:
 
 val with_gcid :
   t -> gcid:int -> t
+
+val get_env_or_default :
+  string -> string -> string

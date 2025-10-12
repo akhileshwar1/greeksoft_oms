@@ -4,8 +4,80 @@ open Lwt.Infix
 open Cohttp_lwt_unix
 open Entities.Config
 
-let auth_url = "http://greekapi.greeksoft.in:3001"
-let api_url = "http://restapi.greeksoft.in:3333"
+(* let auth_url = "http://greekapi.greeksoft.in:3001" *)
+let auth_url = get_env_or_default "AUTH_URL" "http://125.99.50.252:3001"
+let api_url = get_env_or_default "API_URL" "http://restapi.greeksoft.in:3333"
+(* let api_url = "http://greekapi.dhanservices.co:3333" *)
+let iris_url = get_env_or_default "IRIS_URL" "ws://restapi.greeksoft.in:8081"
+(* let iris_url = "ws://greekapi.dhanservices.co:3031" *)
+
+
+let raw_message_handler (msg : string) : unit Lwt.t =
+  match Yojson.Safe.from_string msg with
+  | exception _ -> Lwt_io.printf "Invalid JSON from Iris: %s\n%!" msg
+  | json ->
+    (* Printf.printf "JSON from Iris: %s\n%!" (Yojson.Safe.to_string json); *)
+    let open Yojson.Safe.Util in
+    match json |> member "response" |> member "streaming_type" |> to_string_option with
+    | Some "OrderRejectionResponse"
+    | Some "RmsRejectionResponse"
+    | Some "TradeResponse" ->
+      let data = json |> member "response" |> member "data" in
+      Printf.printf " data is %s\n%!" (Yojson.Safe.pretty_to_string data);
+      begin match Entities.Order.ws_of_yojson data with
+        | order ->
+          Ws.Ws_server.broadcast_to_clients (Yojson.Safe.to_string (Entities.Order.to_yojson order))
+        end
+
+    | Some "HeartBeat" ->
+      (* Ignore or optionally log *)
+      Lwt.return_unit
+    | _ ->
+      (* Other streaming types can be added here *)
+      Lwt.return_unit
+
+let connect_to_iris config = 
+  let gscid, gcid, session_id =
+    match config.broker_config with
+    | Greeksoft g -> g.gscid, g.gcid, g.session_id
+    | _ -> failwith "unsupported broker"
+  in
+  Printf.printf " gcid is %d\n %!" gcid;
+  (* Construct login message *)
+  let login_json = `Assoc [
+    "request", `Assoc [
+      "data", `Assoc [
+        "gscid", `String gscid;
+        "gcid", `String (string_of_int gcid);
+        "sessionId", `String session_id;
+        "device_type", `String "0"
+      ];
+      "response_format", `String "json";
+      "request_type", `String "subscribe";
+      "streaming_type", `String "login"
+    ]
+  ] in
+  let login_msg= Yojson.Basic.to_string login_json in
+
+  let heartbeat_msg =
+  `Assoc [
+    "request", `Assoc [
+      "data", `Assoc [
+        "gcid", `String (string_of_int gcid);
+        "sessionId", `String session_id
+      ];
+      "response_format", `String "json";
+      "request_type", `String "subscribe";
+      "streaming_type", `String "HeartBeat"
+    ]
+  ]
+  |> Yojson.Basic.to_string
+  in
+
+  (* Call the general connector *)
+  let _ = Ws.Connector.connect_to_data_stream iris_url raw_message_handler login_msg heartbeat_msg in
+  Lwt.return config
+
 let find_string_opt key json =
     match Yojson.Basic.Util.member key json with
     | `Null -> None
@@ -98,6 +170,7 @@ let get_login_info config =
   let gscid=
     match config.broker_config with
     | Greeksoft g -> g.gscid
+    | _ -> failwith "unsupported broker"
   in
   let body_json =
     `Assoc [
@@ -149,6 +222,7 @@ let jlogin_new config =
   let gscid, password=
     match config.broker_config with
     | Greeksoft g -> g.gscid, g.password
+    | _ -> failwith "unsupported broker"
   in
   let body_json =
     `Assoc [
@@ -178,7 +252,7 @@ let jlogin_new config =
     json 
     |> Yojson.Basic.Util.member "response" 
     |> Yojson.Basic.Util.member "sessionId"
-    |> Yojson.Basic.to_string in
+    |> Yojson.Basic.Util.to_string in
   Lwt_io.printf "session id is : %s\n" session_id 
   >>= fun () ->
   Lwt.return (with_session_id config ~session_id)
