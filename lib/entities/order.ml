@@ -43,7 +43,7 @@ type t = {
   executed_at : Ptime.t option;
   tradingsymbol : string;
   exchange : string;
-  quantity : int;
+  quantity : float;
   lot : int;
   price : float;
   trigger_price : float;
@@ -54,7 +54,7 @@ type t = {
   strategy_name : string option;
   broker_order_id : string;
   status : status_type option;
-  filled_quantity : int;
+  filled_quantity : float;
   filled_price : float;
   order_id : string;
 }
@@ -133,11 +133,11 @@ let of_yojson (json : Yojson.Safe.t) : t =
     executed_at = None;
     tradingsymbol = safe to_string "tradingsymbol";
     exchange = safe to_string "exchange";
-    quantity = safe to_int "quantity";
-    filled_quantity = safe to_int "quantity";
+    quantity = safe_to_float json "quantity";
+    filled_quantity = safe_to_float json "filled_quantity";
     filled_price = safe_to_float json "price";
     order_id = safe to_string "order_id";
-    lot = safe to_int "quantity" / 75;
+    lot = (int_of_float ((safe_to_float json "quantity") /. 75.0));
     price = safe_to_float json "price";
     trigger_price = safe_to_float json "trigger_price";
     side = safe_match "side" to_string;
@@ -183,8 +183,8 @@ let to_yojson (order : t) : Yojson.Safe.t =
       | None -> `Null);
     "tradingsymbol", `String order.tradingsymbol;
     "exchange", `String order.exchange;
-    "quantity", `Int order.quantity;
-    "filled_quantity", `Int order.filled_quantity;
+    "quantity", `Float order.quantity;
+    "filled_quantity", `Float order.filled_quantity;
     "lot", `Int order.lot;
     "price", `Float order.price;
     "filled_price", `Float order.filled_price;
@@ -242,8 +242,8 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
       executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now *)
-      quantity = int_of_string (safe to_string "qty");
-      filled_quantity = int_of_string (safe to_string "traded_qty");
+      quantity = float_of_string (safe to_string "qty");
+      filled_quantity = float_of_string (safe to_string "traded_qty");
       filled_price = float_of_string (safe to_string "traded_price");
       price = float_of_string (safe to_string "price");
       lot = int_of_string (safe to_string "qty") / 75;
@@ -266,20 +266,20 @@ let ws_of_yojson (data: Yojson.Safe.t) : t =
   | "Pending" ->
     {
       common_fields with
-      filled_quantity = int_of_string (safe to_string "qty") - int_of_string (safe to_string "pending_qty");
+      filled_quantity = float_of_string (safe to_string "qty") -. float_of_string (safe to_string "pending_qty");
       filled_price = 0.0; (* no fill price in pending orders *)
       status = Some Pending;
     }
   | _ -> 
     {
       common_fields with
-      quantity = -1;
+      quantity = -1.0;
       lot = -1;
       price = 0.0;
       side = Sell; (* side not available in Rms Rejected status *)
       order_type = Limit;
       status = Some Rejected;
-      filled_quantity = -1;
+      filled_quantity = -1.0;
       filled_price = 0.0;
     }
 
@@ -308,8 +308,8 @@ let zerodha_ws_of_yojson (data: Yojson.Safe.t) : t =
       executed_at = Some (Ptime_clock.now ());
       tradingsymbol = safe to_string "symbol";
       exchange = "NSE";  (* Assuming fixed for now *)
-      quantity = int_of_string (safe to_string "quantity");
-      filled_quantity = int_of_string (safe to_string "filled_quantity");
+      quantity = float_of_string (safe to_string "quantity");
+      filled_quantity = float_of_string (safe to_string "filled_quantity");
       filled_price = float_of_string (safe to_string "average_price");
       price = float_of_string (safe to_string "price");
       lot = int_of_string (safe to_string "qty") / 75;
@@ -332,13 +332,13 @@ let zerodha_ws_of_yojson (data: Yojson.Safe.t) : t =
   | _ -> 
     {
       common_fields with
-      quantity = -1;
+      quantity = -1.0;
       lot = -1;
       price = 0.0;
       side = Sell; (* side not available in Rms Rejected status *)
       order_type = Limit;
       status = Some Rejected;
-      filled_quantity = -1;
+      filled_quantity = -1.0;
       filled_price = 0.0;
     }
 
@@ -353,9 +353,10 @@ let binance_ws_of_yojson (data : Yojson.Safe.t) : t =
   let safe_float_of_string s =
     try float_of_string s with _ -> 0.0
   in
-  let safe_int_of_string s =
-    try int_of_float (float_of_string s) with _ -> 0
-  in
+
+  (* let safe_int_of_string s = *)
+  (*   try int_of_float (float_of_string s) with _ -> 0 *)
+  (* in *)
 
   (* Binance executionReport fields (common): *)
   let symbol = (try data |> member "s" |> to_string with _ -> safe_string "symbol") in
@@ -386,8 +387,8 @@ let binance_ws_of_yojson (data : Yojson.Safe.t) : t =
     | _ -> Some Unknown
   in
 
-  let qty = if qty_s = "" then 0 else safe_int_of_string qty_s in
-  let filled_qty = if executed_qty_s = "" then 0 else safe_int_of_string executed_qty_s in
+  let qty = if qty_s = "" then 0.0 else safe_float_of_string qty_s in
+  let filled_qty = if executed_qty_s = "" then 0.0 else safe_float_of_string executed_qty_s in
   let price =
     if last_filled_price_s <> "" then safe_float_of_string last_filled_price_s
     else if price_s <> "" then safe_float_of_string price_s
@@ -406,7 +407,7 @@ let binance_ws_of_yojson (data : Yojson.Safe.t) : t =
     tradingsymbol = symbol;
     exchange = "BINANCE";
     quantity = qty;
-    lot = (if qty = 0 then 0 else qty); (* adapt lot computation later *)
+    lot = (if qty = 0.0 then 0 else int_of_float qty); (* adapt lot computation later *)
     price = price;
     trigger_price = 0.0;
     side = side;

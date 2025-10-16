@@ -33,6 +33,52 @@ module SHA = Digestif.SHA256
 let timestamp_ms () = 
   Int64.to_string (Int64.of_float (Unix.gettimeofday () *. 1000.0))
 
+let quantize_floor value step =
+  if step <= 0.0 then value
+  else floor (value /. step) *. step
+
+let quantize_ceil value step =
+  if step <= 0.0 then value
+  else ceil (value /. step) *. step
+
+(* Choose quantize behavior by side:
+   - For BUY limit: you might want to quantize price down (so you don't buy at a higher tick).
+   - For SELL limit: you might want to quantize price up (so you don't sell below intended).
+*)
+let quantize_price_for_side ~side ~price ~tick =
+  match side with
+  | "BUY" -> quantize_floor price tick
+  | "SELL" -> quantize_ceil price tick
+  | _ -> quantize_floor price tick
+
+let quantize_qty qty step = (quantize_floor qty step)
+
+let decimals_of_step step =
+  (* Convert 0.001 -> 3, 1e-8 -> 8 etc. *)
+  let s = Printf.sprintf "%.18f" step in
+  let trim_right pred s =
+    let len = String.length s in
+    let rec find_right i =
+      if i < 0 then -1
+    else if pred s.[i] then find_right (i - 1)
+      else i
+    in
+  let last_nonmatch = find_right (len - 1) in
+  if last_nonmatch = -1 then "" else String.sub s 0 (last_nonmatch + 1)
+  in
+  try
+    let s = String.trim s in
+    if String.contains s '.' then
+      let frac = snd (String.split_on_char '.' s |> fun lst -> (List.hd lst, List.hd (List.tl lst))) in
+      let frac = trim_right (fun c -> c = '0') frac in
+      String.length frac
+    else 0
+  with _ -> 8
+
+let format_to_step value step =
+  let d = decimals_of_step step in
+  Printf.sprintf "%.*f" d value
+
 (* Add standard Binance params: symbol, side, type, price/quantity etc.
    Return (params_list, pretty_json_for_logging) *)
 let build_binance_params_of_order (config : Entities.Config.t) (order : Entities.Order.t) =
@@ -41,6 +87,17 @@ let build_binance_params_of_order (config : Entities.Config.t) (order : Entities
     let symbol = order.tradingsymbol  (* ensure correct symbol format e.g. BTCUSDT *) in
     let side = match order.side with Buy -> "BUY" | Sell -> "SELL" in
     let otype = match order.order_type with Limit -> "LIMIT" | Market -> "MARKET" in
+    let tick_size = 0.01 (* smallest increments for price in the order book *) in
+    let step_size = 0.001 (* smallest increments for quantity *) in
+    let price =
+      if otype = "LIMIT" then
+        let p = order.price in
+        quantize_price_for_side ~side ~price:p ~tick:tick_size
+    else order.price
+    in
+    let qty = quantize_qty order.quantity step_size in
+    let price_str = format_to_step price tick_size in
+    let qty_str = format_to_step qty step_size in
     let params =
       [
         ("symbol", `String symbol);
@@ -53,11 +110,11 @@ let build_binance_params_of_order (config : Entities.Config.t) (order : Entities
       (* include price/quantity where applicable *)
       let params = 
         if otype = "LIMIT" then
-          ("price", `String (Printf.sprintf "%.8f" order.price)) :: ("timeInForce",`String "GTC") :: params
+          ("price", `String price_str) :: ("timeInForce",`String "GTC") :: params
         else params
       in
       (* quantity as string *)
-      ("quantity", `String (string_of_int order.quantity)) :: params
+      ("quantity", `String qty_str) :: params
     in
     (* optional client id *)
     let params = ("newClientOrderId", `String (match order.order_id with "" -> generate_order_id () | s -> s)) :: params in
@@ -66,7 +123,7 @@ let build_binance_params_of_order (config : Entities.Config.t) (order : Entities
       ("side", `String side);
       ("type", `String otype);
       ("price", `Float order.price);
-      ("quantity", `Int order.quantity)
+      ("quantity", `Float order.quantity)
     ] in
     (`Assoc params, json_log)
   | _ -> failwith "build_binance_params_of_order: not a Binance config"
@@ -102,7 +159,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
         ("lot", `String (string_of_int order.lot));
         ("order_type", `String (string_of_int (order_type_to_int order.order_type)));
         ("product", `String (string_of_int (product_type_to_int order.product))); (*Cnc for delivery*)
-        ("qty", `String (string_of_int order.quantity));
+        ("qty", `String (string_of_float order.quantity));
         ("corderid", `String corderid);
         ("amo", `String "0");
         (* ("iprocli", `String "2"); *)
@@ -124,7 +181,7 @@ let to_json (config : Entities.Config.t) (order : Entities.Order.t) : Yojson.Bas
       ("exchange", `String "NSE");
       ("transaction_type", `String (side_to_z_string order.side));
       ("order_type", `String (otype_to_z_string order.order_type));
-      ("quantity", `String (string_of_int order.quantity));
+      ("quantity", `String (string_of_float order.quantity));
       ("validity", `String (vtype_to_z_string order.validity));
     ]
   | Binance _ ->
@@ -291,7 +348,7 @@ let get_order_status (config : Entities.Config.t) (order : Entities.Order.t) : E
           |> Greeksoft.Order.greeksoft_string_to_status
           |> Greeksoft.Order.om_status
         in
-        let traded_qty = member "traded_qty" first |> to_int in
+        let traded_qty = member "traded_qty" first |> to_float in
         let updated_order = {
           order with
           status = Some status;
