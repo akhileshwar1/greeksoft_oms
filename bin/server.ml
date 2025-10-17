@@ -104,7 +104,7 @@ let () =
     (App.empty
     |> App.post "/login" login_handler
     |> App.post "/order/place" place_order_handler
-    |> App.post "/order/cancel" cancel_order_handler
+    |> App.delete "/order/cancel" cancel_order_handler
     |> App.run_command)
   in
   Lwt_main.run (Lwt.join [ws_server; http_server])
