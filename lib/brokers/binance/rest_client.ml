@@ -81,7 +81,10 @@ let sign_query ~secret ~msg =
   let mac = Digestif.SHA256.hmac_string ~key:secret msg in
   Digestif.SHA256.to_hex mac
 
+(* binance uses a string origClientOrderId(which we provide) and an int orderId to uniquely identify an order,
+   Here we make use of the exchange provided orderId *)
 let cancel_order ~headers ~symbol ~order_id ~api_key ~secret_key =
+  Printf.printf "Cancelling order %s\n" order_id;
   let timestamp = Int64.of_float (Unix.gettimeofday () *. 1000.) |> Int64.to_string in
   (* Construct query parameters *)
   let base_params = [

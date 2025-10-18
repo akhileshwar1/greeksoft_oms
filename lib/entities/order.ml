@@ -396,7 +396,7 @@ let binance_ws_of_yojson (data : Yojson.Safe.t) : t =
   in
 
   let broker_order_id =
-    try data |> member "c" |> to_string (* orderId *)
+    try data |> member "i" |> to_int |> string_of_int (* orderId *)
     with _ -> safe_string "orderId"
   in
 

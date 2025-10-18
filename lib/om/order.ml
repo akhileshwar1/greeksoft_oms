@@ -235,19 +235,20 @@ let place_order (config : Entities.Config.t) (order : Entities.Order.t) =
     Binance.Rest_client.place_order ~headers ~body:json ~api_key ~secret_key
     >>= fun body_str ->
 
-      Printf.printf " in binance place order returned \n%!";
+      Printf.printf " in binance place order returned %s\n%!" body_str;
     (* parse Binance response (flat JSON) and extract orderId or clientOrderId *)
     let j = Yojson.Basic.from_string body_str in
     let open Yojson.Basic.Util in
     let order_id_opt =
-      (try Some (j |> member "orderId" |> to_string) with _ -> None)
-      |> (function None -> (try Some (j |> member "clientOrderId" |> to_string) with _ -> None) | s -> s)
+      (try Some (j |> member "orderId" |> to_int |> string_of_int) with _ -> None)
     in
     begin match order_id_opt with
       | Some oid ->
+          Printf.printf "broker order id is %s\n%!" oid;
           let updated_order = { order with broker_order_id = oid } in
           Lwt.return updated_order
       | None ->
+          Printf.printf "broker order id is None\n%!";
           Lwt.fail_with ("Binance.place_order: no orderId in response: " ^ body_str)
     end
   | Dummy _ ->
